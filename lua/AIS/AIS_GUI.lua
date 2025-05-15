@@ -1,19 +1,56 @@
 if CLIENT then
 
-    local ply = LocalPlayer()
+    local localplayer = LocalPlayer()
+
+    hook.Add( "InitPostEntity", "AIS_GUIInitPlayer", function()
+	    localplayer = LocalPlayer()
+    end )
 
     local equipmentSlots = {
         "Head", "Torso", "Gloves", "Pants", "Boots", "Trinket 1", "Trinket 2", "Trinket 3", "Trinket 4"
     }
 
+    AIS_AttributeLocalization = {
+    ArmorPoints = function(val)
+        return "<color=255,238,0>Armor: " .. val .. "</color>"
+    end,
+    ELArmorPoints = function(val)
+        return "<color=0,183,255>Elem. Armor: " .. val .. "</color>"
+    end,
+    }
+
+    function GetItemAttributeBlock(itemData)
+        local attr = itemData.Attributes or {}
+        local lines = {}
+
+        for key, val in pairs(attr) do
+            local formatter = AIS_AttributeLocalization[key]
+            if formatter then
+                table.insert(lines, formatter(val))
+            else
+                table.insert(lines, key .. ": " .. tostring(val))
+            end
+        end
+
+        return table.concat(lines, "\n")
+    end
+
+    function CalculateDamageReduction(armor)
+        if armor >= 0 then
+            return 100 / (100 + armor)
+        else
+            return 1 + math.abs(armor) / 100
+        end
+    end
+
     local ItemTooltip
     hook.Add("Think", "AIS_UpdateItemTooltip", function()
 
         local x, y = input.GetCursorPos()
-        ply.ItemTooltipPos = {x, y}
+        localplayer.ItemTooltipPos = {x, y}
 
         if IsValid(ItemTooltip) then
-            ItemTooltip:SetPos(ply.ItemTooltipPos[1] + 10, ply.ItemTooltipPos[2] + 10)
+            ItemTooltip:SetPos(localplayer.ItemTooltipPos[1] + 10, localplayer.ItemTooltipPos[2] + 10)
         end
     end)
 
@@ -50,24 +87,79 @@ if CLIENT then
         local w, h = AISInventoryFrame:GetSize()
         local third = w / 3
     
-        -- Lewa sekcja: ekwipunek
+        ----------------------[LEFT PANEL - INVENTORY]--------------------
         local inventoryPanel = vgui.Create("DPanel", AISInventoryFrame)
         inventoryPanel:SetPos(margin, margin)
         inventoryPanel:SetSize(third - margin * 2, h - margin * 2)
         inventoryPanel:SetBackgroundColor(Color(40, 40, 40))
     
-        -- Środek: playermodel i sloty
+        ---------------------[CENTER PANEL - PLAYERMODEL]--------------------
         local centerPanel = vgui.Create("DPanel", AISInventoryFrame)
         centerPanel:SetPos(third + margin, margin)
         centerPanel:SetSize(third - margin * 2, h - margin * 2)
         centerPanel:SetBackgroundColor(Color(50, 50, 50))
     
-        -- Prawa sekcja: status
+        --------------------[RIGHT PANEL - STATS PANEL]----------------
         local statusPanel = vgui.Create("DPanel", AISInventoryFrame)
         statusPanel:SetPos(third * 2 + margin, margin)
         statusPanel:SetSize(third - margin * 2, h - margin * 2)
         statusPanel:SetBackgroundColor(Color(40, 40, 40))
+        statusPanel.Paint = function(self, w, h)
+            draw.RoundedBox(4, 0, 0, w, h, self:GetBackgroundColor())
 
+            local ply = LocalPlayer()
+            local y = 10
+            local padding = 5
+            local font = "TargetID"
+            
+            -- Nick + zdrowie
+            draw.SimpleText("Player: " .. ply:Nick(), font, 10, y, color_white)
+            y = y + 20
+            draw.SimpleText("Health: " .. ply:Health() .. " / " .. ply:GetMaxHealth(), font, 10, y, Color(200, 255, 200))
+            y = y + 30
+
+            draw.SimpleText("EQUIPMENT:", font, 10, y, Color(255, 255, 100))
+            y = y + 20
+
+            local totalArmor = 0
+            local totalELArmor = 0
+
+            for _, slotPanel in ipairs(AISslotList or {}) do
+                local slotName = slotPanel.name
+                local itemObj = slotPanel.ItemOnSlot
+
+                local itemData
+                if itemObj and itemObj.AIS_ItemID then
+                    itemData = AIS_Items[itemObj.AIS_ItemID]
+                end
+
+                if itemData then
+                    local armor = itemData.Attributes and itemData.Attributes["ArmorPoints"] or 0
+                    local elarmor = itemData.Attributes and itemData.Attributes["ELArmorPoints"] or 0
+
+                    draw.SimpleText(string.format("%s: %s - %d ARMOR / %d ELEM. ARMOR", slotName, itemData.Name or "?", armor, elarmor), font, 10, y, Color(200, 200, 255))
+                    
+                    totalArmor = totalArmor + armor
+                    totalELArmor = totalELArmor + elarmor
+                elseif not itemObj then
+                    draw.SimpleText(string.format("%s: (none)", slotName), font, 10, y, Color(100, 100, 100))
+                end
+
+                y = y + 20
+            end
+
+            y = y + 10
+            draw.SimpleText("Summary:", font, 10, y, color_white)
+            y = y + 20
+
+            local totalReduction = (1 - CalculateDamageReduction(totalArmor)) * 100
+            local totalELReduction = (1 - CalculateDamageReduction(totalELArmor)) * 100
+            draw.SimpleText(string.format("Armor: %d | Damage Reduction: %.2f%%", totalArmor, totalReduction), font, 10, y, Color(0, 255, 150))
+            draw.SimpleText(string.format("Elem. Armor: %d | Damage Reduction: %.2f%%", totalELArmor, totalELReduction), font, 10, y + 20, Color(0, 255, 150))
+        end
+
+
+        --------------------[CLOSE BUTTON]--------------------
         local CloseButton = vgui.Create("DButton", statusPanel)
         CloseButton:SetText("Close Inventory")
         CloseButton:SetSize(100, 30)
@@ -142,7 +234,8 @@ if CLIENT then
                 item:SetPos(x, y)
                 AISItemGrid:InvalidateLayout(true)
                 if item.isEquipped then
-                    user:UnequipItem(item.AIS_ItemID, itemData.AssignedSlot)
+                    print(item.AIS_ItemID, item.AssignedSlot)
+                    user:UnequipItem(item.AIS_ItemID, item.AssignedSlot)
                     item.isEquipped = false
                     item.AssignedSlot = nil
                     user:EmitSound("ui/item_pack_drop.wav")
@@ -258,7 +351,7 @@ if CLIENT then
             end
 
             itemObject.DoRightClick = function()
-                ply:EmitSound("ui/cyoa_map_open.wav")
+                localplayer:EmitSound("ui/cyoa_map_open.wav")
 
                 local Itemmenu = DermaMenu()
 
@@ -266,25 +359,19 @@ if CLIENT then
                     Itemmenu:AddOption("Equip", function()
                         local itemData = itemObject.AISItem_Data
                         if not itemData then return end
-
-
+                        local FoundFreeSlot = false
                         for _, slot in ipairs(AISslotList) do
                             if IsValid(slot) and ItemFitSlot(slot.name, itemData) and not IsValid(slot.ItemOnSlot) then
-                                if IsValid(slot.ItemOnSlot) then
-                                    slot.ItemOnSlot:SetParent(AISItemGrid)
-                                    AISItemGrid:InvalidateLayout(true)
-                                end
-
                                 itemObject:SetParent(slot)
                                 itemObject:SetPos(10, itemObject:GetTall() / 2)
                                 slot.ItemOnSlot = itemObject
                                 itemObject.AssignedSlot = slot.name
 
-                                ply:EquipItem(itemObject.AIS_ItemID, slot.name)
+                                localplayer:EquipItem(itemObject.AIS_ItemID, slot.name)
 
                                 itemObject.isEquipped = true
                                 itemObject:Droppable("inventorygrid")
-                                ply:EmitSound("ui/item_bag_drop.wav")
+                                localplayer:EmitSound("ui/item_bag_drop.wav")
                                 break
                             end
                         end
@@ -299,12 +386,12 @@ if CLIENT then
                                 slot.ItemOnSlot:SetParent(AISItemGrid)
                                 AISItemGrid:InvalidateLayout(true)
 
-                                slot.ItemOnSlot = nil
-                                ply:UnequipItem(itemObject.AIS_ItemID, slot.name)
+                                localplayer:UnequipItem(itemObject.AIS_ItemID, slot.name)
                                 itemObject.AssignedSlot = nil
                                 itemObject.isEquipped = false
+                                slot.ItemOnSlot = nil
 
-                                ply:EmitSound("ui/item_bag_pickup.wav")
+                                localplayer:EmitSound("ui/item_bag_pickup.wav")
                                 break
                             end
                         end
@@ -313,18 +400,19 @@ if CLIENT then
 
                 Itemmenu:AddOption("Inspect", function()
 
-                    ply:EmitSound("ui/credits_updated.wav")
+                    localplayer:EmitSound("ui/credits_updated.wav")
 
                     local inspectFrame = vgui.Create("DFrame")
-                    inspectFrame:SetSize(300, 200)
+                    inspectFrame:SetSize(800, 500)
                     inspectFrame:Center()
-                    inspectFrame:SetTitle(data.Name)
-                    inspectFrame:ShowCloseButton(false)
+                    inspectFrame:SetTitle(data.Name or "Inspect")
+                    inspectFrame:ShowCloseButton(true)
                     inspectFrame:MakePopup()
 
+                    -- Ikona przedmiotu
                     inspectFrame.inspectImage = vgui.Create("DImage", inspectFrame)
-                    inspectFrame.inspectImage:SetSize(100, 100)
-                    inspectFrame.inspectImage:SetPos(10, inspectFrame:GetTall() / 2 - 50)
+                    inspectFrame.inspectImage:SetSize(400, 400)
+                    inspectFrame.inspectImage:SetPos(10, inspectFrame:GetTall() / 2 - 200)
                     inspectFrame.inspectImage:SetKeepAspect(true)
                     inspectFrame.inspectImage.Paint = function(self, w, h)
                         draw.RoundedBox(6, 0, 0, w, h, Color(0, 0, 0))
@@ -333,27 +421,55 @@ if CLIENT then
                         surface.DrawTexturedRect(0, 0, w, h)
                     end
 
-                    inspectFrame.inspectDescription = vgui.Create("DLabel", inspectFrame)
-                    inspectFrame.inspectDescription:SetPos(120, 20)
-                    inspectFrame.inspectDescription:SetText(data.Description)
-                    inspectFrame.inspectDescription:SetFont("DermaDefault")
-                    inspectFrame.inspectDescription:SetWrap(true)
-                    inspectFrame.inspectDescription:SetSize(170, 100)
+                    local attributeLines = ""
+                    if data.Attributes then
+                        for key, value in pairs(data.Attributes) do
+                            local formatter = AIS_AttributeLocalization[key]
+                            if formatter then
+                                attributeLines = attributeLines .. formatter(value) .. "\n"
+                            else
+                                -- fallback, jeśli nie ma funkcji lokalizującej
+                                attributeLines = attributeLines .. "<color=200,200,200>" .. key .. ": " .. tostring(value) .. "</color>\n"
+                            end
+                        end
+                    end
 
+                    -- Składamy finalny markup
+                    local parsed = markup.Parse(
+                        "<font=ChatFont>" ..
+                            "<color=255,255,255><b>Description:</b></color>\n" ..
+                            "<color=200,200,200>" .. (data.Description or "No description.") .. "</color>\n\n" ..
+                            "<color=150,200,255><b>Stats:</b></color>\n" ..
+                            attributeLines ..
+                        "</font>",
+                        375
+                    )
+
+
+                    -- Panelek na opis
+                    inspectFrame.DescriptionPanel = vgui.Create("DPanel", inspectFrame)
+                    inspectFrame.DescriptionPanel:SetPos(inspectFrame:GetWide() / 2 + 20, 30)
+                    inspectFrame.DescriptionPanel:SetSize(375, parsed:GetHeight() + 20)
+                    inspectFrame.DescriptionPanel.Paint = function(self, w, h)
+                        parsed:Draw(0, 0, TEXT_ALIGN_LEFT)
+                    end
+
+                    -- Przycisk zamykania
                     inspectFrame.CloseButton = vgui.Create("DButton", inspectFrame)
                     inspectFrame.CloseButton:SetText("Close")
                     inspectFrame.CloseButton:SetSize(80, 30)
-                    inspectFrame.CloseButton:SetPos(210, 160)
+                    inspectFrame.CloseButton:SetPos(inspectFrame:GetWide() / 2 + 180, 450)
                     inspectFrame.CloseButton.DoClick = function()
                         inspectFrame:Close()
-                        ply:EmitSound("ui/cyoa_switch.wav")
+                        localplayer:EmitSound("ui/cyoa_switch.wav")
                     end
 
                 end):SetIcon("icon16/magnifier.png")
 
+
                 Itemmenu:AddOption("Drop", function()
                     itemObject:Remove()
-                    ply:EmitSound("physics/metal/metal_box_break2.wav")
+                    localplayer:EmitSound("physics/metal/metal_box_break2.wav")
                 end)
 
                 Itemmenu:Open()
@@ -363,14 +479,12 @@ if CLIENT then
                 if IsValid(ItemTooltip) then ItemTooltip:Remove() end
 
                 BGColor = Color(0, 197, 154)
-
-                ply:EmitSound("ui/cyoa_switch.wav")
+                localplayer:EmitSound("ui/cyoa_switch.wav")
 
                 local name = data.Name or "Unknown Item"
                 local slot = data.Slot
                 local description = data.Description or "No description available."
 
-                -- Jeśli slot to tabela (np. dla Trinketa), ustaw przyjazną nazwę
                 local SlotString = "Not specified"
                 if slot then
                     if type(slot) == "table" then
@@ -380,16 +494,20 @@ if CLIENT then
                     end
                 end
 
-                -- 🧙 Formatowany opis
+                -- Techniczny opis atrybutów
+                local attributeBlock = GetItemAttributeBlock(data)
+
+                -- Łączny opis z markupem
                 local formattedDesc = string.format(
-                    "<font=ChatFont><b>%s</b>\n<color=200,200,200>%s</color>\n<color=150,150,255>Slot: %s</color></font>",
+                    "<font=TargetIDSmall><b>%s</b>\n<color=200,200,200>%s</color>%s\n\n<color=150,150,255>Slot: %s</color></font>",
                     name,
                     description,
+                    attributeBlock ~= "" and ("\n\n" .. attributeBlock) or "",
                     SlotString
                 )
 
-                -- Użyjemy markup.Parse żeby automatycznie ogarnąć szerokość i wysokość
-                local markup = markup.Parse(formattedDesc, 300) -- 300 = max szerokość tekstu
+                -- Parsowanie i tworzenie tooltipa
+                local markup = markup.Parse(formattedDesc, 300)
 
                 ItemTooltip = vgui.Create("DPanel")
                 ItemTooltip:SetSize(markup:GetWidth() + 20, markup:GetHeight() + 20)
@@ -408,6 +526,7 @@ if CLIENT then
                     markup:Draw(10, 10, self:GetAlpha())
                 end
             end
+
 
 
             itemObject.OnCursorExited = function()
@@ -449,4 +568,7 @@ if CLIENT then
             OpenAISInventory(user)
         end
     end)
+
+                    Color(255,238,0)
+                Color(0,183,255)
 end

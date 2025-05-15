@@ -28,7 +28,8 @@ if SERVER then
         DMG_DISSOLVE,
         DMG_PLASMA
     }
-    function GetDamageMultiplierFromArmor(armor)
+    
+    function CalculateDamageReduction(armor)
         if armor >= 0 then
             return 100 / (100 + armor)
         else

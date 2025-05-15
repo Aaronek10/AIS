@@ -77,6 +77,8 @@ if SERVER then
         ply:AddAISItem("TrinketTestB")
     end)
 
+    
+
     -- Obsługa zarządzania ekwipunkiem
     net.Receive("AIS_ManageInventory", function(_, ply)
         local action = net.ReadString()
@@ -132,6 +134,7 @@ if CLIENT then
     net.Receive("AIS_InventoryUpdater", function()
         PlayerInventory = net.ReadTable()
         print("[AIS CLIENT] Player Inventory Updated: ", PlayerInventory)
+        notification.AddLegacy("[AIS] Your inventory has been updated!", NOTIFY_GENERIC, 5)
     end)
 
     -- Odbieranie akcji zarządzania ekwipunkiem
@@ -142,10 +145,12 @@ if CLIENT then
         if action == "Add" then
             PlayerInventory[item] = true
             print("[AIS CLIENT] Added item to inventory: " .. item .. " | Calling revalidate...")
+            notification.AddLegacy("[AIS] Obtained: " .. AIS_Items[item].Name, NOTIFY_GENERIC, 5)
 
         elseif action == "Remove" then
             PlayerInventory[item] = nil
             print("[AIS CLIENT] Removed item from inventory: " .. item  .. " | Calling revalidate...")
+            notification.AddLegacy("[AIS] Removed: " .. AIS_Items[item].Name, NOTIFY_GENERIC, 5)
         end
 
         -- Rewalidacja ekwipunku (np. odświeżenie GUI)

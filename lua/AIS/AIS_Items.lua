@@ -1,8 +1,8 @@
 AIS_Items = {
     ArmorTest = {
-        Icon = "materials/AIS_Items/breastplate.png",
-        Name = "Body Armor",
-        Description = "<color=255,0,0>Common body armor.</color>",
+        Icon = "materials/AIS_Items/LightArmor.png",
+        Name = "Light Military Armor",
+        Description = "One of the basic armors used by military. Isn't great, but grants some protection.",
         Slot = "Torso",
         EquipSound = "",
         UnEquipSound = "",
@@ -16,8 +16,7 @@ AIS_Items = {
             -- Default wearing function
         end,
         Attributes = {
-            ["ArmorPoints"] = 0,
-            ["ELArmorPoints"] = 0,
+            ["ArmorPoints"] = 25,
         },
         ClientHooks = {},
         ServerHooks = {}
@@ -58,8 +57,8 @@ AIS_Items = {
             -- Default wearing function
         end,
         Attributes = {
-            ["ArmorPoints"] = 0,
-            ["ELArmorPoints"] = 0,
+            ["ArmorPoints"] = 15,
+            ["ELArmorPoints"] = 5,
         },
         ClientHooks = {},
         ServerHooks = {}
@@ -101,7 +100,7 @@ AIS_Items = {
         end,
         Attributes = {
             ["ArmorPoints"] = 0,
-            ["ELArmorPoints"] = 0,
+            ["ELArmorPoints"] = 1250,
         },
         ClientHooks = {},
         ServerHooks = {}
@@ -121,7 +120,7 @@ AIS_Items = {
             -- Default wearing function
         end,
         Attributes = {
-            ["ArmorPoints"] = 0,
+            ["ArmorPoints"] = 5500,
             ["ELArmorPoints"] = 0,
         },
         ClientHooks = {},
