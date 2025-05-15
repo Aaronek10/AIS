@@ -48,6 +48,7 @@ if CLIENT then
 
         local x, y = input.GetCursorPos()
         localplayer.ItemTooltipPos = {x, y}
+        AIS_DebugMode = GetConVar("AIS_Debug"):GetBool()
 
         if IsValid(ItemTooltip) then
             ItemTooltip:SetPos(localplayer.ItemTooltipPos[1] + 10, localplayer.ItemTooltipPos[2] + 10)
@@ -133,15 +134,17 @@ if CLIENT then
                     itemData = AIS_Items[itemObj.AIS_ItemID]
                 end
 
-                if itemData then
-                    local armor = itemData.Attributes and itemData.Attributes["ArmorPoints"] or 0
-                    local elarmor = itemData.Attributes and itemData.Attributes["ELArmorPoints"] or 0
+                if itemObj then
+                    if itemData then
+                        local armor = itemData.Attributes and itemData.Attributes["ArmorPoints"] or 0
+                        local elarmor = itemData.Attributes and itemData.Attributes["ELArmorPoints"] or 0
 
-                    draw.SimpleText(string.format("%s: %s - %d ARMOR / %d ELEM. ARMOR", slotName, itemData.Name or "?", armor, elarmor), font, 10, y, Color(200, 200, 255))
-                    
-                    totalArmor = totalArmor + armor
-                    totalELArmor = totalELArmor + elarmor
-                elseif not itemObj then
+                        draw.SimpleText(string.format("%s: %s - %d ARMOR / %d ELEM. ARMOR", slotName, itemData.Name or "?", armor, elarmor), font, 10, y, Color(200, 200, 255))
+                        
+                        totalArmor = totalArmor + armor
+                        totalELArmor = totalELArmor + elarmor
+                    end
+                else
                     draw.SimpleText(string.format("%s: (none)", slotName), font, 10, y, Color(100, 100, 100))
                 end
 
@@ -232,15 +235,17 @@ if CLIENT then
                 local itemData = item.AISItem_Data
                 item:SetParent(self)
                 item:SetPos(x, y)
-                AISItemGrid:InvalidateLayout(true)
                 if item.isEquipped then
-                    print(item.AIS_ItemID, item.AssignedSlot)
                     user:UnequipItem(item.AIS_ItemID, item.AssignedSlot)
-                    item.isEquipped = false
                     item.AssignedSlot = nil
-                    user:EmitSound("ui/item_pack_drop.wav")
+                    item.isEquipped = false
+                    for _, slot in ipairs(AISslotList) do
+                        if IsValid(slot) and slot.ItemOnSlot == item then
+                            slot.ItemOnSlot = nil
+                        end
+                    end
                 end
-                -- Dodatkowe operacje (np. zapisz stan)
+                AISItemGrid:InvalidateLayout(true)
             end
         end)
 
@@ -285,7 +290,11 @@ if CLIENT then
 
                         user:EquipItem(item.AIS_ItemID, slot.name)
 
-                        user:EmitSound("ui/item_bag_drop.wav")
+                        if itemData.EquipSound then
+                            localplayer:EmitSound(itemData.UnEquipSound)
+                        else
+                            localplayer:EmitSound("ui/item_bag_pickup.wav")
+                        end
                     else
                         user:EmitSound("player/crit_hit_mini4.wav")
                         item:SetParent(AISItemGrid)
@@ -318,13 +327,16 @@ if CLIENT then
         if not IsValid(AISInventoryFrame) then return end
         if not IsValid(AISItemGrid) then return end
         AISItemGrid:Clear()
-        
-        print("[AIS CLIENT] Called Revalidating Inventory Grid!")
+        if AIS_DebugMode then
+            print("[AIS CLIENT] Called Revalidating Inventory Grid!")
+        end
 
 
         for itemID, isValid in pairs(PlayerInventory) do
             local data = AIS_Items[itemID]
-            print("[AIS CLIENT] Found verified item: " .. itemID)
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Found verified item: " .. itemID)
+            end
             local itemObject = AISItemGrid:Add("DButton")
             itemObject:SetSize(64, 64)
             itemObject:SetText("")
@@ -359,7 +371,6 @@ if CLIENT then
                     Itemmenu:AddOption("Equip", function()
                         local itemData = itemObject.AISItem_Data
                         if not itemData then return end
-                        local FoundFreeSlot = false
                         for _, slot in ipairs(AISslotList) do
                             if IsValid(slot) and ItemFitSlot(slot.name, itemData) and not IsValid(slot.ItemOnSlot) then
                                 itemObject:SetParent(slot)
@@ -371,7 +382,11 @@ if CLIENT then
 
                                 itemObject.isEquipped = true
                                 itemObject:Droppable("inventorygrid")
-                                localplayer:EmitSound("ui/item_bag_drop.wav")
+                                if itemObject.AISItem_Data.EquipSound then
+                                    localplayer:EmitSound(itemObject.AISItem_Data.EquipSound)
+                                else
+                                    localplayer:EmitSound("ui/item_bag_drop.wav")
+                                end
                                 break
                             end
                         end
@@ -391,7 +406,11 @@ if CLIENT then
                                 itemObject.isEquipped = false
                                 slot.ItemOnSlot = nil
 
-                                localplayer:EmitSound("ui/item_bag_pickup.wav")
+                                if itemObject.AISItem_Data.UnEquipSound then
+                                    localplayer:EmitSound(itemObject.AISItem_Data.UnEquipSound)
+                                else
+                                    localplayer:EmitSound("ui/item_bag_pickup.wav")
+                                end
                                 break
                             end
                         end
@@ -428,7 +447,6 @@ if CLIENT then
                             if formatter then
                                 attributeLines = attributeLines .. formatter(value) .. "\n"
                             else
-                                -- fallback, jeśli nie ma funkcji lokalizującej
                                 attributeLines = attributeLines .. "<color=200,200,200>" .. key .. ": " .. tostring(value) .. "</color>\n"
                             end
                         end
@@ -467,8 +485,9 @@ if CLIENT then
                 end):SetIcon("icon16/magnifier.png")
 
 
-                Itemmenu:AddOption("Drop", function()
+                Itemmenu:AddOption("Remove", function()
                     itemObject:Remove()
+                    localplayer:DestroyItem(itemObject.AIS_ItemID)
                     localplayer:EmitSound("physics/metal/metal_box_break2.wav")
                 end)
 
@@ -494,10 +513,8 @@ if CLIENT then
                     end
                 end
 
-                -- Techniczny opis atrybutów
                 local attributeBlock = GetItemAttributeBlock(data)
 
-                -- Łączny opis z markupem
                 local formattedDesc = string.format(
                     "<font=TargetIDSmall><b>%s</b>\n<color=200,200,200>%s</color>%s\n\n<color=150,150,255>Slot: %s</color></font>",
                     name,
@@ -545,10 +562,8 @@ if CLIENT then
             end
 
             if equippedSlot then
-                -- znajdź panel slota o takiej nazwie
                 for _, slot in ipairs(AISslotList) do
                     if slot.name == equippedSlot then
-                        -- przenieś od razu do slota
                         itemObject:SetParent(slot)
                         itemObject:SetPos(10, itemObject:GetParent():GetTall() / 2 + 20)
                         itemObject:Droppable("inventorygrid")
@@ -568,7 +583,4 @@ if CLIENT then
             OpenAISInventory(user)
         end
     end)
-
-                    Color(255,238,0)
-                Color(0,183,255)
 end

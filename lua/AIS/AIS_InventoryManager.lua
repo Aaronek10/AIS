@@ -13,12 +13,15 @@ if SERVER then
     end)
 
     local PLAYER = FindMetaTable("Player")
+    print(AIS_DebugMode)
 
     -- Funkcja dodawania przedmiotu do ekwipunku
     function PLAYER:AddAISItem(item)
 
         if AIS_Items[item] == nil then
-            print("[AIS SERVER] Item not found: " .. item)
+            if AIS_DebugMode then
+                print("[AIS SERVER] Item not found: " .. item)
+            end
             return
         end
 
@@ -28,7 +31,9 @@ if SERVER then
 
         if not AIS_PlayerInventories[self][item] then
             AIS_PlayerInventories[self][item] = true
-            print("[AIS SERVER] Added item to inventory: " .. item)
+            if AIS_DebugMode then
+                print("[AIS SERVER] Added item to inventory: " .. item)
+            end
 
             -- Aktualizacja klienta
             net.Start("AIS_ManageInventory")
@@ -36,7 +41,9 @@ if SERVER then
             net.WriteString(item)
             net.Send(self)
         else
-            print("[AIS SERVER] Item already in inventory: " .. item)
+            if AIS_DebugMode then
+                print("[AIS SERVER] Item already in inventory: " .. item)
+            end
         end
     end
 
@@ -50,7 +57,9 @@ if SERVER then
         
         if AIS_PlayerInventories[self] and AIS_PlayerInventories[self][item] then
             AIS_PlayerInventories[self][item] = nil
-            print("[AIS SERVER] Removed item from inventory: " .. item)
+            if AIS_DebugMode then
+                print("[AIS SERVER] Removed item from inventory: " .. item)
+            end
 
             -- Aktualizacja klienta
             net.Start("AIS_ManageInventory")
@@ -58,7 +67,9 @@ if SERVER then
             net.WriteString(item)
             net.Send(self)
         else
-            print("[AIS SERVER] Item not found in inventory: " .. item)
+            if AIS_DebugMode then
+                print("[AIS SERVER] Item not found in inventory: " .. item)
+            end
         end
     end
 
@@ -86,35 +97,55 @@ if SERVER then
         local item = net.ReadString()
         local slot = net.ReadString()
 
-        print("[AIS SERVER] Manage Inventory: " .. action .. " | Item: " .. item .. " | Slot: " .. slot)
+        if AIS_DebugMode then
+            print("[AIS SERVER] Manage Inventory: " .. action .. " | Item: " .. item .. " | Slot: " .. slot)
+        end
 
-        -- Sprawdzanie czy gracz ma ekwipunek
         if not AIS_PlayerInventories[InvPlayer] then
-            AIS_PlayerInventories[InvPlayer] = {}  -- Tworzymy nowy ekwipunek
+            AIS_PlayerInventories[InvPlayer] = {}
         end
 
         if not AIS_EquipedSlots[InvPlayer] then
-            AIS_EquipedSlots[InvPlayer] = {}  -- Tworzymy nowy zestaw slotów
+            AIS_EquipedSlots[InvPlayer] = {}
         end
 
         if action == "Equip" then
             if not AIS_PlayerInventories[InvPlayer][item] then
-                print("[AIS SERVER] Equip failed: player doesn't have item " .. item)
+                if AIS_DebugMode then
+                    print("[AIS SERVER] Equip failed: player doesn't have item " .. item)
+                end
                 return
             end
-
-            -- Ekwipowanie przedmiotu do slotu
             AIS_EquipedSlots[InvPlayer][slot] = item
-            print("[AIS SERVER] Equipped " .. item .. " in slot " .. slot)
-            PrintTable(AIS_EquipedSlots[InvPlayer])
 
         elseif action == "Unequip" then
             if AIS_EquipedSlots[InvPlayer][slot] == item then
                 AIS_EquipedSlots[InvPlayer][slot] = nil
-                print("[AIS SERVER] Unequipped " .. item .. " from slot " .. slot)
-                PrintTable(AIS_EquipedSlots[InvPlayer])
-            else
-                print("[AIS SERVER] Unequip failed: slot doesn't contain " .. item)
+            end
+
+        elseif action == "Destroy" then
+            -- Spróbuj znaleźć slot, jeśli nie podano
+            if slot == "" or not slot then
+                for s, v in pairs(AIS_EquipedSlots[InvPlayer]) do
+                    if v == item then
+                        slot = s
+                        break
+                    end
+                end
+            end
+
+            -- Jeśli item był założony – zdejmij go
+            if slot and AIS_EquipedSlots[InvPlayer][slot] == item then
+                AIS_EquipedSlots[InvPlayer][slot] = nil
+                if AIS_DebugMode then
+                    print("[AIS SERVER] Destroy: unequipped item " .. item .. " from slot " .. slot)
+                end
+            end
+
+            -- Usuń z inventory
+            AIS_PlayerInventories[InvPlayer][item] = nil
+            if AIS_DebugMode then
+                print("[AIS SERVER] Destroyed item " .. item)
             end
         end
     end)
@@ -133,7 +164,9 @@ if CLIENT then
     -- Odbieranie zaktualizowanego ekwipunku
     net.Receive("AIS_InventoryUpdater", function()
         PlayerInventory = net.ReadTable()
-        print("[AIS CLIENT] Player Inventory Updated: ", PlayerInventory)
+        if AIS_DebugMode then
+            print("[AIS CLIENT] Player Inventory Updated: ", PlayerInventory)
+        end
         notification.AddLegacy("[AIS] Your inventory has been updated!", NOTIFY_GENERIC, 5)
     end)
 
@@ -144,12 +177,16 @@ if CLIENT then
 
         if action == "Add" then
             PlayerInventory[item] = true
-            print("[AIS CLIENT] Added item to inventory: " .. item .. " | Calling revalidate...")
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Added item to inventory: " .. item .. " | Calling revalidate...")
+            end
             notification.AddLegacy("[AIS] Obtained: " .. AIS_Items[item].Name, NOTIFY_GENERIC, 5)
 
         elseif action == "Remove" then
             PlayerInventory[item] = nil
-            print("[AIS CLIENT] Removed item from inventory: " .. item  .. " | Calling revalidate...")
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Removed item from inventory: " .. item  .. " | Calling revalidate...")
+            end
             notification.AddLegacy("[AIS] Removed: " .. AIS_Items[item].Name, NOTIFY_GENERIC, 5)
         end
 
@@ -165,7 +202,9 @@ if CLIENT then
     -- Funkcja ekwipowania przedmiotu
     function PLAYERCLIENT:EquipItem(item, slot)
         if not item or not slot then
-            print("[AIS CLIENT] Equip Item failed: item or slot is invalid.")
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Equip Item failed: item or slot is invalid.")
+            end
             return
         end
 
@@ -173,16 +212,22 @@ if CLIENT then
         local itemData = AIS_Items[item]
 
         if not itemInInventory then
-            print("[AIS CLIENT] Equip Item failed: item not found in inventory.")
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Equip Item failed: item not found in inventory.")
+            end
             return
         end
 
         if not ItemFitSlot(slot, itemData) then
-            print("[AIS CLIENT] Equip Item failed: slot does not match item requirements.")
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Equip Item failed: slot does not match item requirements.")
+            end
             return
         end
 
-        print("[AIS CLIENT] Equipped item: " .. item .. " in slot: " .. tostring(slot))
+        if AIS_DebugMode then
+            print("[AIS CLIENT] Equipped item: " .. item .. " in slot: " .. tostring(slot))
+        end
         PlayerEquippedItems[slot] = item
 
         net.Start("AIS_ManageInventory")
@@ -195,19 +240,23 @@ if CLIENT then
 
     function PLAYERCLIENT:UnequipItem(item, slot)
         if not item or not slot then
-            print("[AIS CLIENT] Unequip Item failed: item or slot is invalid.")
-            if not item then
-                print("[AIS CLIENT] Item is nil.")
-            end
-            if not slot then
-                print("[AIS CLIENT] Slot is nil.")
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Unequip Item failed: item or slot is invalid.")
+                if not item then
+                    print("[AIS CLIENT] Item is nil.")
+                end
+                if not slot then
+                    print("[AIS CLIENT] Slot is nil.")
+                end
             end
             return
         end
 
         local itemData = PlayerInventory[item]
         if not itemData then
-            print("[AIS CLIENT] Unequip Item failed: item not found in inventory.")
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Unequip Item failed: item not found in inventory.")
+            end
             return
         end
 
@@ -218,7 +267,9 @@ if CLIENT then
         --     return
         -- end
 
-        print("[AIS CLIENT] Unequipped item: " .. item .. " from slot: " .. tostring(slot))
+        if AIS_DebugMode then
+            print("[AIS CLIENT] Unequipped item: " .. item .. " from slot: " .. tostring(slot))
+        end
         PlayerEquippedItems[slot] = nil
 
         net.Start("AIS_ManageInventory")
@@ -226,6 +277,50 @@ if CLIENT then
         net.WritePlayer(LocalPlayer())
         net.WriteString(item)
         net.WriteString(slot)
+        net.SendToServer()
+    end
+
+    function PLAYERCLIENT:DestroyItem(item)
+        if not item then
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Destroy Item failed: item is invalid.")
+            end
+            return
+        end
+
+        local itemData = PlayerInventory[item]
+        if not itemData then
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Destroy Item failed: item not found in inventory.")
+            end
+            return
+        else
+            PlayerInventory[item] = nil
+        end
+
+        -- Znajdź slot, w którym item jest założony
+        local foundSlot = nil
+        for slot, equippedItem in pairs(PlayerEquippedItems) do
+            if equippedItem == item then
+                foundSlot = slot
+                break
+            end
+        end
+
+        -- Usuń ze slotu jeśli był założony
+        if foundSlot then
+            self:UnequipItem(item, foundSlot)
+        end
+
+        if AIS_DebugMode then
+            print("[AIS CLIENT] Destroyed item: " .. item .. (foundSlot and (" from slot " .. foundSlot) or " (not equipped)"))
+        end
+
+        net.Start("AIS_ManageInventory")
+            net.WriteString("Destroy")
+            net.WritePlayer(LocalPlayer())
+            net.WriteString(item)
+            net.WriteString(foundSlot or "") -- pusty string, jeśli nie było slotu
         net.SendToServer()
     end
 

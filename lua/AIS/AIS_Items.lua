@@ -2,10 +2,8 @@ AIS_Items = {
     ArmorTest = {
         Icon = "materials/AIS_Items/LightArmor.png",
         Name = "Light Military Armor",
-        Description = "One of the basic armors used by military. Isn't great, but grants some protection.",
+        Description = "One of the basic armors used by <color=102,255,0>military.</color> Isn't great, but grants some <color=0,102,255>protection.</color>",
         Slot = "Torso",
-        EquipSound = "",
-        UnEquipSound = "",
         OnEquip = function(ply, item)
             -- Default equip function
         end,
