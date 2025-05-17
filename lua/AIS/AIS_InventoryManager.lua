@@ -13,7 +13,16 @@ if SERVER then
     end)
 
     local PLAYER = FindMetaTable("Player")
-    print(AIS_DebugMode)
+
+    function FindPlayerByName(name)
+        name = string.lower(name)
+        for _, ply in ipairs(player.GetAll()) do
+            if string.find(string.lower(ply:Nick()), name, 1, true) then
+                return ply
+            end
+        end
+    end
+
 
     -- Funkcja dodawania przedmiotu do ekwipunku
     function PLAYER:AddAISItem(item)
@@ -73,7 +82,8 @@ if SERVER then
         end
     end
 
-    -- Komenda testowa do dodawania przedmiotów do ekwipunku
+
+    --[[
     concommand.Add("ais_test", function(ply, cmd, args)
         timer.Simple(5, function() 
             ply:AddAISItem("GlovesTest")
@@ -87,6 +97,7 @@ if SERVER then
         ply:AddAISItem("TrinketTestA")
         ply:AddAISItem("TrinketTestB")
     end)
+    ]]--
 
     
 
@@ -109,6 +120,8 @@ if SERVER then
             AIS_EquipedSlots[InvPlayer] = {}
         end
 
+        local itemData = AIS_Items[item]
+
         if action == "Equip" then
             if not AIS_PlayerInventories[InvPlayer][item] then
                 if AIS_DebugMode then
@@ -116,38 +129,101 @@ if SERVER then
                 end
                 return
             end
+
             AIS_EquipedSlots[InvPlayer][slot] = item
+
+            if AIS_DebugMode then
+                print("[AIS SERVER] Equipped " .. item .. " in slot " .. slot)
+                PrintTable(AIS_EquipedSlots[InvPlayer])
+            end
+
+            if itemData and isfunction(itemData.OnEquip) then
+                local args = itemData.ExtraEquipArgs or {}
+                itemData.OnEquip(InvPlayer, item, unpack(args))
+            end
 
         elseif action == "Unequip" then
             if AIS_EquipedSlots[InvPlayer][slot] == item then
                 AIS_EquipedSlots[InvPlayer][slot] = nil
-            end
 
-        elseif action == "Destroy" then
-            -- Spróbuj znaleźć slot, jeśli nie podano
-            if slot == "" or not slot then
-                for s, v in pairs(AIS_EquipedSlots[InvPlayer]) do
-                    if v == item then
-                        slot = s
-                        break
-                    end
-                end
-            end
-
-            -- Jeśli item był założony – zdejmij go
-            if slot and AIS_EquipedSlots[InvPlayer][slot] == item then
-                AIS_EquipedSlots[InvPlayer][slot] = nil
                 if AIS_DebugMode then
-                    print("[AIS SERVER] Destroy: unequipped item " .. item .. " from slot " .. slot)
+                    print("[AIS SERVER] Unequipped " .. item .. " from slot " .. slot)
+                    PrintTable(AIS_EquipedSlots[InvPlayer])
                 end
-            end
 
-            -- Usuń z inventory
-            AIS_PlayerInventories[InvPlayer][item] = nil
-            if AIS_DebugMode then
-                print("[AIS SERVER] Destroyed item " .. item)
+                if itemData and isfunction(itemData.OnUnEquip) then
+                    local args = itemData.ExtraUnEquipArgs or {}
+                    itemData.OnUnEquip(InvPlayer, item, unpack(args))
+                end
+            else
+                if AIS_DebugMode then
+                    print("[AIS SERVER] Unequip failed: slot doesn't contain " .. item)
+                end
             end
         end
+    end)
+
+
+    concommand.Add("AIS_AddItem", function(admin, cmd, args)
+        local targetName = args[1]
+        local itemID = args[2]
+
+        if not targetName or not itemID then
+            print("[AIS] Usage: AIS_AddItem <player> <itemID>")
+            return
+        end
+
+        local target = FindPlayerByName(targetName)
+        if not IsValid(target) then
+            print("[AIS] Player not found: " .. tostring(targetName))
+            return
+        end
+
+        target:AddAISItem(itemID)
+    end)
+
+    concommand.Add("AIS_RemoveItem", function(admin, cmd, args)
+        local targetName = args[1]
+        local itemID = args[2]
+
+        if not targetName or not itemID then
+            print("[AIS] Usage: AIS_RemoveItem <player> <itemID>")
+            return
+        end
+
+        local target = FindPlayerByName(targetName)
+        if not IsValid(target) then
+            print("[AIS] Player not found: " .. tostring(targetName))
+            return
+        end
+
+        target:RemoveAISItem(itemID)
+    end)
+
+    concommand.Add("AIS_ClearInventory", function(admin, cmd, args)
+        local targetName = args[1]
+
+        if not targetName then
+            print("[AIS] Usage: AIS_ClearInventory <player>")
+            return
+        end
+
+        local target = FindPlayerByName(targetName)
+        if not IsValid(target) then
+            print("[AIS] Player not found: " .. tostring(targetName))
+            return
+        end
+
+        AIS_PlayerInventories[target] = {}
+
+        if AIS_DebugMode then
+            print("[AIS SERVER] Cleared inventory for: " .. target:Nick())
+        end
+
+        -- Poinformuj klienta, że jego inwentarz jest pusty
+        net.Start("AIS_ManageInventory")
+        net.WriteString("Clear")
+        net.Send(target)
     end)
 end
 
@@ -168,6 +244,7 @@ if CLIENT then
             print("[AIS CLIENT] Player Inventory Updated: ", PlayerInventory)
         end
         notification.AddLegacy("[AIS] Your inventory has been updated!", NOTIFY_GENERIC, 5)
+        LocalPlayer():EmitSound("AIS_UI/cyoa_node_absent.wav")
     end)
 
     -- Odbieranie akcji zarządzania ekwipunkiem
@@ -181,6 +258,7 @@ if CLIENT then
                 print("[AIS CLIENT] Added item to inventory: " .. item .. " | Calling revalidate...")
             end
             notification.AddLegacy("[AIS] Obtained: " .. AIS_Items[item].Name, NOTIFY_GENERIC, 5)
+            LocalPlayer():EmitSound("AIS_UI/panel_close.wav")
 
         elseif action == "Remove" then
             PlayerInventory[item] = nil
@@ -188,8 +266,15 @@ if CLIENT then
                 print("[AIS CLIENT] Removed item from inventory: " .. item  .. " | Calling revalidate...")
             end
             notification.AddLegacy("[AIS] Removed: " .. AIS_Items[item].Name, NOTIFY_GENERIC, 5)
+            LocalPlayer():EmitSound("AIS_UI/panel_close.wav")
+        elseif action == "Clear" then
+            PlayerInventory = {}
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Cleared inventory | Calling revalidate...")
+            end
+            notification.AddLegacy("[AIS] Your inventory has been cleared!", NOTIFY_GENERIC, 5)
+            LocalPlayer():EmitSound("AIS_UI/cyoa_key_minimize.wav")
         end
-
         -- Rewalidacja ekwipunku (np. odświeżenie GUI)
         AIS_InventoryGridRevalidate()
     end)

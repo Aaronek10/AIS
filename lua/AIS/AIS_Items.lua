@@ -85,7 +85,7 @@ AIS_Items = {
     TrinketTestA = {
         Icon = "entities/sent_ball.png",
         Name = "Trinket A",
-        Description = "Common trinket.",
+        Description = "Common trinket A.",
         Slot = {"Trinket 1", "Trinket 2", "Trinket 3", "Trinket 4"},
         OnEquip = function(ply, item)
             -- Default equip function
@@ -106,7 +106,7 @@ AIS_Items = {
     TrinketTestB = {
         Icon = "entities/sent_ball.png",
         Name = "Trinket B",
-        Description = "Common trinket A.",
+        Description = "Common trinket B.",
         Slot = {"Trinket 1", "Trinket 2", "Trinket 3", "Trinket 4"},
         OnEquip = function(ply, item)
             -- Default equip function

@@ -29,6 +29,14 @@ if SERVER then
         DMG_PLASMA
     }
     
+    -------------------[DAMAGE REDUCTION]-----------------------
+    --[[ 
+        This function calculates the damage reduction based on the armor value.
+        It uses a formula to determine the reduction percentage based on the armor value.
+        The formula is:
+            - If armor >= 0: reduction = 100 / (100 + armor)
+            - If armor < 0: reduction = 1 + abs(armor) / 100
+    ]]
     function CalculateDamageReduction(armor)
         if armor >= 0 then
             return 100 / (100 + armor)
@@ -46,7 +54,11 @@ if SERVER then
         print("[AIS] Debug mode changed to:", AIS_DebugMode)
     end, "AIS_Debug_Changed")
 
-
+    -----------------------[DAMAGE REDUCTION]-----------------------
+    --[[ 
+        This function handles the damage reduction based on the equipped items' armor and elemental armor.
+        It checks the damage type and applies the appropriate reduction based on the equipped items.
+    ]]
     hook.Add("EntityTakeDamage", "AIS_HandleArmorReduction", function(ply, dmginfo)
         if not IsValid(ply) or not ply:IsPlayer() then return end
 
@@ -56,7 +68,6 @@ if SERVER then
         local armor = 0
         local elarmor = 0
 
-        -- Sumujemy Armor i ELArmor z każdego slotu
         for _, itemID in pairs(slotTable) do
             local itemData = AIS_Items[itemID]
             if itemData and itemData.Attributes then
@@ -65,11 +76,9 @@ if SERVER then
             end
         end
 
-        -- Określamy typ obrażeń
         local dmgType = dmginfo:GetDamageType()
         local dmg = dmginfo:GetDamage()
 
-        -- Wartości redukcji
         local reduction = 1
         for _, typ in ipairs(Physical) do
             if bit.band(dmgType, typ) > 0 then
@@ -85,9 +94,147 @@ if SERVER then
             end
         end
 
+        --[[
+        local HitGroupName = {
+            [HITGROUP_HEAD] = "Head",
+            [HITGROUP_CHEST] = "Chest",
+            [HITGROUP_STOMACH] = "Stomach",
+            [HITGROUP_LEFTARM] = "Left Arm",
+            [HITGROUP_RIGHTARM] = "Right Arm",
+            [HITGROUP_LEFTLEG] = "Left Leg",
+            [HITGROUP_RIGHTLEG] = "Right Leg",
+            [HITGROUP_GEAR] = "Gear"
+        }
+        ]]--
         local newDmg = dmg * reduction
-        --PrintMessage(HUD_PRINTTALK, "Damage changed from: " .. dmg .. " -> " .. newDmg .. " | Damage Reduction %: " .. (1 - reduction) * 100 .. "%")
+        --PrintMessage(HUD_PRINTTALK, "Damage changed from: " .. dmg .. " -> " .. newDmg .. " | Damage Reduction %: " .. math.Round((1 - reduction) * 100, 2) .. "%")
+        --PrintMessage(HUD_PRINTTALK, "Last Hit Group: " .. HitGroupName[ply:LastHitGroup()])
         dmginfo:SetDamage(newDmg)
     end)
 
+    local function CreateItemsHooks()
+        for itemID, itemData in pairs(AIS_Items) do
+            if itemData.ServerHooks then
+                for index, hookData in ipairs(itemData.ServerHooks) do
+                    if hookData.HookType then
+                        local hookID = "AIS_ITEM_SERVERHOOK_" .. itemID .. "_" .. tostring(index)
+
+                        -- Zabezpieczenie
+                        if type(hookData.HookFunction) ~= "function" then
+                            print("[AIS] Invalid HookFunction in item: " .. itemID)
+                            continue
+                        end
+
+                        -- Tworzenie lub aktualizacja hooka
+                        if not hookData.HookInit then
+                            hookData.LastHookFunction = hookData.HookFunction
+
+                            print("[AIS] Created item hook: " .. itemID .. " | Hook: " .. hookID)
+
+                            hook.Add(hookData.HookType, hookID, function(...)
+                                hookData.HookFunction(...)
+                            end)
+
+                            hookData.HookInit = true
+                        elseif hookData.LastHookFunction ~= hookData.HookFunction then
+                            print("[AIS] Updated item hook: " .. itemID .. " | Hook: " .. hookID)
+
+                            hook.Add(hookData.HookType, hookID, function(...)
+                                hookData.HookFunction(...)
+                            end)
+
+                            hookData.LastHookFunction = hookData.HookFunction
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    hook.Add("Think", "AIS_ApplyWhenWearing", function()
+        for _, ply in ipairs(player.GetAll()) do
+            local slots = AIS_EquipedSlots[ply]
+            if not slots then continue end
+
+            for _, item in pairs(slots) do
+                local itemData = AIS_Items[item]
+                if itemData and isfunction(itemData.WhenWearing) then
+                    local args = itemData.ExtraWearingArgs or {}
+                    itemData.WhenWearing(ply, item, unpack(args))
+                end
+            end
+        end
+    end)
+
+    hook.Add("PlayerSpawn", "AIS_OnEquipOnRespawn", function(ply)
+        local slots = AIS_EquipedSlots[ply]
+        if not slots then return end
+
+        for _, item in pairs(slots) do
+            local itemData = AIS_Items[item]
+            if itemData and isfunction(itemData.OnEquip) then
+                local args = itemData.ExtraEquipArgs or {}
+                itemData.OnEquip(ply, item, unpack(args))
+            end
+        end
+    end)
+
+
+
+    hook.Add("InitPostEntity", "AIS_CreateHooks", function() 
+        CreateItemsHooks()
+    end)
+
+    concommand.Add("AIS_CreateItemHooks", function(ply, cmd, args)
+        CreateItemsHooks()
+    end, nil, "Reloads or creates all AIS hooks.")
+end
+
+if CLIENT then
+    local function CreateClientItemsHooks()
+        for itemID, itemData in pairs(AIS_Items) do
+            if itemData.ServerHooks then
+                for index, hookData in ipairs(itemData.ClientHooks) do
+                    if hookData.HookType then
+                        local hookID = "AIS_ITEM_CLIENTHOOK_" .. itemID .. "_" .. tostring(index)
+
+                        -- Zabezpieczenie
+                        if type(hookData.HookFunction) ~= "function" then
+                            print("[AIS] Invalid HookFunction in item: " .. itemID)
+                            continue
+                        end
+
+                        -- Tworzenie lub aktualizacja hooka
+                        if not hookData.HookInit then
+                            hookData.LastHookFunction = hookData.HookFunction
+
+                            print("[AIS] Created item hook: " .. itemID .. " | Hook: " .. hookID)
+
+                            hook.Add(hookData.HookType, hookID, function(...)
+                                hookData.HookFunction(...)
+                            end)
+
+                            hookData.HookInit = true
+                        elseif hookData.LastHookFunction ~= hookData.HookFunction then
+                            print("[AIS] Updated item hook: " .. itemID .. " | Hook: " .. hookID)
+
+                            hook.Add(hookData.HookType, hookID, function(...)
+                                hookData.HookFunction(...)
+                            end)
+
+                            hookData.LastHookFunction = hookData.HookFunction
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    hook.Add("InitPostEntity", "AIS_CreateHooks", function() 
+        CreateClientItemsHooks()
+    end)
+
+    concommand.Add("AIS_CreateClientItemHooks", function(ply, cmd, args)
+        CreateClientItemsHooks()
+    end, nil, "Reloads or creates all AIS hooks.")
 end

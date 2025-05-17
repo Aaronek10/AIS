@@ -168,7 +168,7 @@ if CLIENT then
         CloseButton:SetSize(100, 30)
         CloseButton:SetPos(statusPanel:GetWide() - 110, 10)
         CloseButton.DoClick = function()
-            user:EmitSound("ui/item_bag_drop.wav")
+            user:EmitSound("AIS_UI/panel_open.wav")
             AISInventoryFrame:Close()
         end
 
@@ -293,10 +293,10 @@ if CLIENT then
                         if itemData.EquipSound then
                             localplayer:EmitSound(itemData.UnEquipSound)
                         else
-                            localplayer:EmitSound("ui/item_bag_pickup.wav")
+                            localplayer:EmitSound("AIS_UI/item_bag_pickup.wav")
                         end
                     else
-                        user:EmitSound("player/crit_hit_mini4.wav")
+                        user:EmitSound("AIS_UI/panel_close.wav")
                         item:SetParent(AISItemGrid)
                     end
                 end
@@ -363,7 +363,7 @@ if CLIENT then
             end
 
             itemObject.DoRightClick = function()
-                localplayer:EmitSound("ui/cyoa_map_open.wav")
+                localplayer:EmitSound("AIS_UI/slide_up.wav")
 
                 local Itemmenu = DermaMenu()
 
@@ -385,7 +385,7 @@ if CLIENT then
                                 if itemObject.AISItem_Data.EquipSound then
                                     localplayer:EmitSound(itemObject.AISItem_Data.EquipSound)
                                 else
-                                    localplayer:EmitSound("ui/item_bag_drop.wav")
+                                    localplayer:EmitSound("AIS_UI/item_bag_drop.wav")
                                 end
                                 break
                             end
@@ -409,7 +409,7 @@ if CLIENT then
                                 if itemObject.AISItem_Data.UnEquipSound then
                                     localplayer:EmitSound(itemObject.AISItem_Data.UnEquipSound)
                                 else
-                                    localplayer:EmitSound("ui/item_bag_pickup.wav")
+                                    localplayer:EmitSound("AIS_UI/item_bag_pickup.wav")
                                 end
                                 break
                             end
@@ -419,7 +419,7 @@ if CLIENT then
 
                 Itemmenu:AddOption("Inspect", function()
 
-                    localplayer:EmitSound("ui/credits_updated.wav")
+                    localplayer:EmitSound("AIS_UI/quest_folder_open.wav")
 
                     local inspectFrame = vgui.Create("DFrame")
                     inspectFrame:SetSize(800, 500)
@@ -479,7 +479,7 @@ if CLIENT then
                     inspectFrame.CloseButton:SetPos(inspectFrame:GetWide() / 2 + 180, 450)
                     inspectFrame.CloseButton.DoClick = function()
                         inspectFrame:Close()
-                        localplayer:EmitSound("ui/cyoa_switch.wav")
+                        localplayer:EmitSound("AIS_UI/quest_folder_close.wav")
                     end
 
                 end):SetIcon("icon16/magnifier.png")
@@ -498,7 +498,7 @@ if CLIENT then
                 if IsValid(ItemTooltip) then ItemTooltip:Remove() end
 
                 BGColor = Color(0, 197, 154)
-                localplayer:EmitSound("ui/cyoa_switch.wav")
+                localplayer:EmitSound("AIS_UI/panel_open.wav")
 
                 local name = data.Name or "Unknown Item"
                 local slot = data.Slot
@@ -581,6 +581,7 @@ if CLIENT then
     concommand.Add("Open_AIS_Inventory", function(user)
         if not IsValid(AISInventoryFrame) then
             OpenAISInventory(user)
+            localplayer:EmitSound("AIS_UI/item_heavy_gun_pickup.wav")
         end
     end)
 end
