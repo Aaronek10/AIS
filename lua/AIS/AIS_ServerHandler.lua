@@ -54,6 +54,14 @@ if SERVER then
         print("[AIS] Debug mode changed to:", AIS_DebugMode)
     end, "AIS_Debug_Changed")
 
+    CreateConVar("AIS_RealismMode", "0", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Enable realism mode (hitgroup-based armor reduction)", 0, 1)
+    AIS_RealismMode = GetConVar("AIS_RealismMode"):GetBool()
+
+    cvars.AddChangeCallback("AIS_RealismMode", function(convar_name, old_value, new_value)
+        AIS_RealismMode = tobool(new_value)
+        print("[AIS] Realism mode changed to:", AIS_RealismMode)
+    end, "AIS_RealismMode_Changed")
+
     -----------------------[DAMAGE REDUCTION]-----------------------
     --[[ 
         This function handles the damage reduction based on the equipped items' armor and elemental armor.
@@ -65,52 +73,83 @@ if SERVER then
         local slotTable = AIS_EquipedSlots[ply]
         if not slotTable then return end
 
-        local armor = 0
-        local elarmor = 0
+        local totalArmor = 0
+        local totalElArmor = 0
 
-        for _, itemID in pairs(slotTable) do
+        local function AddItemArmor(itemID)
             local itemData = AIS_Items[itemID]
             if itemData and itemData.Attributes then
-                armor = armor + (itemData.Attributes.ArmorPoints or 0)
-                elarmor = elarmor + (itemData.Attributes.ELArmorPoints or 0)
+                totalArmor = totalArmor + (itemData.Attributes.ArmorPoints or 0)
+                totalElArmor = totalElArmor + (itemData.Attributes.ELArmorPoints or 0)
+            end
+        end
+
+        if AIS_RealismMode then
+            local hitgroup = ply:LastHitGroup()
+
+            local slotForHitGroup = {
+                [HITGROUP_HEAD] = {"Head"},
+                [HITGROUP_CHEST] = {"Torso"},
+                [HITGROUP_STOMACH] = {"Torso"},
+                [HITGROUP_LEFTARM] = {"Arms", "Gloves"},
+                [HITGROUP_RIGHTARM] = {"Arms", "Gloves"},
+                [HITGROUP_LEFTLEG] = {"Pants", "Boots"},
+                [HITGROUP_RIGHTLEG] = {"Pants", "Boots"}
+            }
+
+            local slots = slotForHitGroup[hitgroup]
+            if slots then
+                for _, slot in ipairs(slots) do
+                    if slotTable[slot] then
+                        AddItemArmor(slotTable[slot])
+                    end
+                end
+            end
+        else
+            -- normal mode - suma wszystkiego jak było
+            for _, itemID in pairs(slotTable) do
+                AddItemArmor(itemID)
             end
         end
 
         local dmgType = dmginfo:GetDamageType()
         local dmg = dmginfo:GetDamage()
-
         local reduction = 1
+
         for _, typ in ipairs(Physical) do
             if bit.band(dmgType, typ) > 0 then
-                reduction = reduction * CalculateDamageReduction(armor)
-                --PrintMessage(HUD_PRINTTALK, "Physical Damage Type")
+                reduction = reduction * CalculateDamageReduction(totalArmor)
             end
         end
 
         for _, typ in ipairs(Elemental) do
             if bit.band(dmgType, typ) > 0 then
-                reduction = reduction * CalculateDamageReduction(elarmor)
-                --PrintMessage(HUD_PRINTTALK, "Elemental Damage Type")
+                reduction = reduction * CalculateDamageReduction(totalElArmor)
             end
         end
 
-        --[[
-        local HitGroupName = {
-            [HITGROUP_HEAD] = "Head",
-            [HITGROUP_CHEST] = "Chest",
-            [HITGROUP_STOMACH] = "Stomach",
-            [HITGROUP_LEFTARM] = "Left Arm",
-            [HITGROUP_RIGHTARM] = "Right Arm",
-            [HITGROUP_LEFTLEG] = "Left Leg",
-            [HITGROUP_RIGHTLEG] = "Right Leg",
-            [HITGROUP_GEAR] = "Gear"
-        }
-        ]]--
-        local newDmg = dmg * reduction
-        --PrintMessage(HUD_PRINTTALK, "Damage changed from: " .. dmg .. " -> " .. newDmg .. " | Damage Reduction %: " .. math.Round((1 - reduction) * 100, 2) .. "%")
-        --PrintMessage(HUD_PRINTTALK, "Last Hit Group: " .. HitGroupName[ply:LastHitGroup()])
-        dmginfo:SetDamage(newDmg)
+        local finalDmg = dmg * reduction
+        dmginfo:SetDamage(finalDmg)
+
+        if AIS_DebugMode then
+            if AIS_RealismMode then
+                local hitgroupNames = {
+                    [HITGROUP_HEAD] = "Head",
+                    [HITGROUP_CHEST] = "Torso",
+                    [HITGROUP_STOMACH] = "Torso",
+                    [HITGROUP_LEFTARM] = "Arms",
+                    [HITGROUP_RIGHTARM] = "Arms",
+                    [HITGROUP_LEFTLEG] = "Pants",
+                    [HITGROUP_RIGHTLEG] = "Pants"
+                }
+                local hitName = hitgroupNames[ply:LastHitGroup()] or "Unknown"
+                print(("[AIS] Damage reduced from %.2f to %.2f (Realism mode, hitgroup: %s)"):format(dmg, finalDmg, hitName))
+            else
+                print(("[AIS] Damage reduced from %.2f to %.2f (Normal mode)"):format(dmg, finalDmg))
+            end
+        end
     end)
+
 
     local function CreateItemsHooks()
         for itemID, itemData in pairs(AIS_Items) do

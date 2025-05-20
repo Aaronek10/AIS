@@ -160,6 +160,21 @@ if SERVER then
                     print("[AIS SERVER] Unequip failed: slot doesn't contain " .. item)
                 end
             end
+        elseif action == "Destroy" then
+            if AIS_EquipedSlots[InvPlayer][slot] == item then
+                AIS_EquipedSlots[InvPlayer][slot] = nil
+
+                if AIS_DebugMode then
+                    print("[AIS SERVER] Destroyed " .. item .. " from slot " .. slot)
+                    PrintTable(AIS_EquipedSlots[InvPlayer])
+                end
+            end
+
+            AIS_PlayerInventories[InvPlayer][item] = nil
+
+            if AIS_DebugMode then
+                print("[AIS SERVER] Destroyed " .. item .. " from inventory")
+            end
         end
     end)
 
@@ -373,16 +388,6 @@ if CLIENT then
             return
         end
 
-        local itemData = PlayerInventory[item]
-        if not itemData then
-            if AIS_DebugMode then
-                print("[AIS CLIENT] Destroy Item failed: item not found in inventory.")
-            end
-            return
-        else
-            PlayerInventory[item] = nil
-        end
-
         -- Znajdź slot, w którym item jest założony
         local foundSlot = nil
         for slot, equippedItem in pairs(PlayerEquippedItems) do
@@ -396,6 +401,18 @@ if CLIENT then
         if foundSlot then
             self:UnequipItem(item, foundSlot)
         end
+
+        local itemData = PlayerInventory[item]
+        if not itemData then
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Destroy Item failed: item not found in inventory.")
+            end
+            return
+        else
+            PlayerInventory[item] = nil
+        end
+
+
 
         if AIS_DebugMode then
             print("[AIS CLIENT] Destroyed item: " .. item .. (foundSlot and (" from slot " .. foundSlot) or " (not equipped)"))

@@ -7,7 +7,7 @@ if CLIENT then
     end )
 
     local equipmentSlots = {
-        "Head", "Torso", "Gloves", "Pants", "Boots", "Trinket 1", "Trinket 2", "Trinket 3", "Trinket 4"
+        "Head", "Torso", "Arms", "Gloves", "Pants", "Boots", "Trinket 1", "Trinket 2", "Trinket 3", "Trinket 4"
     }
 
     AIS_AttributeLocalization = {
@@ -488,7 +488,7 @@ if CLIENT then
                 Itemmenu:AddOption("Remove", function()
                     itemObject:Remove()
                     localplayer:DestroyItem(itemObject.AIS_ItemID)
-                    localplayer:EmitSound("physics/metal/metal_box_break2.wav")
+                    localplayer:EmitSound("AIS_UI/item_shovel_drop.wav")
                 end)
 
                 Itemmenu:Open()
