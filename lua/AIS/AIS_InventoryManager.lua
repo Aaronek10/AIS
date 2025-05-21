@@ -252,6 +252,17 @@ if CLIENT then
     
     local PLAYERCLIENT = FindMetaTable("Player")
 
+    concommand.Add("AIS_ShowAllItems", function()
+        if not LocalPlayer():IsAdmin() then
+            print("[AIS] You are not an admin!")
+            return
+        end
+
+        for item, data in pairs(AIS_Items) do
+            print("[AIS] ItemID: " .. item .. " | Name: " .. data.Name)
+        end
+    end)
+
     -- Odbieranie zaktualizowanego ekwipunku
     net.Receive("AIS_InventoryUpdater", function()
         PlayerInventory = net.ReadTable()

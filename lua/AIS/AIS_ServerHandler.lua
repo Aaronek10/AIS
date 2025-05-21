@@ -94,7 +94,8 @@ if SERVER then
                 [HITGROUP_LEFTARM] = {"Arms", "Gloves"},
                 [HITGROUP_RIGHTARM] = {"Arms", "Gloves"},
                 [HITGROUP_LEFTLEG] = {"Pants", "Boots"},
-                [HITGROUP_RIGHTLEG] = {"Pants", "Boots"}
+                [HITGROUP_RIGHTLEG] = {"Pants", "Boots"},
+                [HITGROUP_GENERIC] = {"Torso"},
             }
 
             local slots = slotForHitGroup[hitgroup]
@@ -140,7 +141,9 @@ if SERVER then
                     [HITGROUP_LEFTARM] = "Arms",
                     [HITGROUP_RIGHTARM] = "Arms",
                     [HITGROUP_LEFTLEG] = "Pants",
-                    [HITGROUP_RIGHTLEG] = "Pants"
+                    [HITGROUP_RIGHTLEG] = "Pants",
+                    [HITGROUP_GEAR] = "Gear",
+                    [HITGROUP_GENERIC] = "Generic",
                 }
                 local hitName = hitgroupNames[ply:LastHitGroup()] or "Unknown"
                 print(("[AIS] Damage reduced from %.2f to %.2f (Realism mode, hitgroup: %s)"):format(dmg, finalDmg, hitName))
