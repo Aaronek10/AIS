@@ -75,18 +75,20 @@ if SERVER then
 
         local totalArmor = 0
         local totalElArmor = 0
+        local IfArmored = false
 
         local function AddItemArmor(itemID)
             local itemData = AIS_Items[itemID]
             if itemData and itemData.Attributes then
-                totalArmor = totalArmor + (itemData.Attributes.ArmorPoints or 0)
-                totalElArmor = totalElArmor + (itemData.Attributes.ELArmorPoints or 0)
+                local armor = itemData.Attributes.ArmorPoints or 0
+                local elArmor = itemData.Attributes.ELArmorPoints or 0
+                totalArmor = totalArmor + armor
+                totalElArmor = totalElArmor + elArmor
             end
         end
 
         if AIS_RealismMode then
             local hitgroup = ply:LastHitGroup()
-
             local slotForHitGroup = {
                 [HITGROUP_HEAD] = {"Head"},
                 [HITGROUP_CHEST] = {"Torso"},
@@ -103,14 +105,15 @@ if SERVER then
                 for _, slot in ipairs(slots) do
                     if slotTable[slot] then
                         AddItemArmor(slotTable[slot])
+                        IfArmored = true -- ✅ pancerz pokrywa miejsce trafienia
                     end
                 end
             end
         else
-            -- normal mode - suma wszystkiego jak było
             for _, itemID in pairs(slotTable) do
                 AddItemArmor(itemID)
             end
+            IfArmored = totalArmor > 0 -- opcjonalnie, żeby w trybie arcade też był efekt
         end
 
         local dmgType = dmginfo:GetDamageType()
@@ -131,26 +134,48 @@ if SERVER then
 
         local finalDmg = dmg * reduction
         dmginfo:SetDamage(finalDmg)
+        ply.AIS_LastHitPosition = dmginfo:GetDamagePosition()
+        ply.AIS_InflictorPosition = dmginfo:GetInflictor():GetPos()
+
+
+        timer.Simple(0, function()
+            if not IsValid(ply) then return end
+
+            local effectData = EffectData()
+            effectData:SetOrigin(ply.AIS_LastHitPosition)
+
+            if IfArmored then
+                effectData:SetNormal(ply.AIS_InflictorPosition - ply.AIS_LastHitPosition)
+                util.Effect("MetalSpark", effectData)
+            else
+                util.Effect("BloodImpact", effectData)
+            end
+        end)
 
         if AIS_DebugMode then
-            if AIS_RealismMode then
-                local hitgroupNames = {
-                    [HITGROUP_HEAD] = "Head",
-                    [HITGROUP_CHEST] = "Torso",
-                    [HITGROUP_STOMACH] = "Torso",
-                    [HITGROUP_LEFTARM] = "Arms",
-                    [HITGROUP_RIGHTARM] = "Arms",
-                    [HITGROUP_LEFTLEG] = "Pants",
-                    [HITGROUP_RIGHTLEG] = "Pants",
-                    [HITGROUP_GEAR] = "Gear",
-                    [HITGROUP_GENERIC] = "Generic",
-                }
-                local hitName = hitgroupNames[ply:LastHitGroup()] or "Unknown"
-                print(("[AIS] Damage reduced from %.2f to %.2f (Realism mode, hitgroup: %s)"):format(dmg, finalDmg, hitName))
-            else
-                print(("[AIS] Damage reduced from %.2f to %.2f (Normal mode)"):format(dmg, finalDmg))
-            end
+            local hitgroupNames = {
+                [HITGROUP_HEAD] = "Head",
+                [HITGROUP_CHEST] = "Torso",
+                [HITGROUP_STOMACH] = "Torso",
+                [HITGROUP_LEFTARM] = "Arms",
+                [HITGROUP_RIGHTARM] = "Arms",
+                [HITGROUP_LEFTLEG] = "Pants",
+                [HITGROUP_RIGHTLEG] = "Pants",
+                [HITGROUP_GEAR] = "Gear",
+                [HITGROUP_GENERIC] = "Generic",
+            }
+            local hitName = hitgroupNames[ply:LastHitGroup()] or "Unknown"
+            print(("[AIS] Damage reduced from %.2f to %.2f (Hitgroup: %s, Armor Absorbed: %s)"):format(dmg, finalDmg, hitName, tostring(IfArmored)))
         end
+    end)
+
+
+    hook.Add("PlayerSpawn", "AIS_ArmorBloodEffect", function(ply) 
+        ply:SetBloodColor(DONT_BLEED)
+    end)
+    
+    hook.Add("PlayerInitialSpawn", "AIS_ArmorBloodEffect", function(ply) 
+        ply:SetBloodColor(DONT_BLEED)
     end)
 
 
