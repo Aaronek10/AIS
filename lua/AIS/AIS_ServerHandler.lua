@@ -91,13 +91,13 @@ if SERVER then
             local hitgroup = ply:LastHitGroup()
             local slotForHitGroup = {
                 [HITGROUP_HEAD] = {"Head"},
-                [HITGROUP_CHEST] = {"Torso"},
-                [HITGROUP_STOMACH] = {"Torso"},
+                [HITGROUP_CHEST] = {"Chest"},
+                [HITGROUP_STOMACH] = {"Chest"},
                 [HITGROUP_LEFTARM] = {"Arms", "Gloves"},
                 [HITGROUP_RIGHTARM] = {"Arms", "Gloves"},
                 [HITGROUP_LEFTLEG] = {"Pants", "Boots"},
                 [HITGROUP_RIGHTLEG] = {"Pants", "Boots"},
-                [HITGROUP_GENERIC] = {"Torso"},
+                [HITGROUP_GENERIC] = {"Chest"},
             }
 
             local slots = slotForHitGroup[hitgroup]
@@ -155,8 +155,8 @@ if SERVER then
         if AIS_DebugMode then
             local hitgroupNames = {
                 [HITGROUP_HEAD] = "Head",
-                [HITGROUP_CHEST] = "Torso",
-                [HITGROUP_STOMACH] = "Torso",
+                [HITGROUP_CHEST] = "Chest",
+                [HITGROUP_STOMACH] = "Chest",
                 [HITGROUP_LEFTARM] = "Arms",
                 [HITGROUP_RIGHTARM] = "Arms",
                 [HITGROUP_LEFTLEG] = "Pants",
@@ -258,9 +258,10 @@ if SERVER then
 end
 
 if CLIENT then
+
     local function CreateClientItemsHooks()
         for itemID, itemData in pairs(AIS_Items) do
-            if itemData.ServerHooks then
+            if itemData.ClientHooks then
                 for index, hookData in ipairs(itemData.ClientHooks) do
                     if hookData.HookType then
                         local hookID = "AIS_ITEM_CLIENTHOOK_" .. itemID .. "_" .. tostring(index)
@@ -297,8 +298,10 @@ if CLIENT then
         end
     end
 
-    hook.Add("InitPostEntity", "AIS_CreateHooks", function() 
-        CreateClientItemsHooks()
+    hook.Add("InitPostEntity", "AIS_CreateHooks", function()
+        timer.Simple(3, function()
+            CreateClientItemsHooks()
+        end) 
     end)
 
     concommand.Add("AIS_CreateClientItemHooks", function(ply, cmd, args)

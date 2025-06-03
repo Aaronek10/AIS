@@ -82,6 +82,19 @@ if SERVER then
         end
     end
 
+    function PLAYER:HasEquippedItem(item)
+        local equipped = AIS_EquipedSlots[self]
+        if not equipped then return false end
+
+        for _, equippedItem in pairs(equipped) do
+            if equippedItem == item then
+                return true
+            end
+        end
+
+        return false
+    end
+
 
     --[[
     concommand.Add("ais_test", function(ply, cmd, args)
@@ -269,7 +282,7 @@ if CLIENT then
         if AIS_DebugMode then
             print("[AIS CLIENT] Player Inventory Updated: ", PlayerInventory)
         end
-        notification.AddLegacy("[AIS] Your inventory has been updated!", NOTIFY_GENERIC, 5)
+        --notification.AddLegacy("[AIS] Your inventory has been updated!", NOTIFY_GENERIC, 5)
         LocalPlayer():EmitSound("AIS_UI/cyoa_node_absent.wav")
     end)
 
@@ -283,23 +296,25 @@ if CLIENT then
             if AIS_DebugMode then
                 print("[AIS CLIENT] Added item to inventory: " .. item .. " | Calling revalidate...")
             end
-            notification.AddLegacy("[AIS] Obtained: " .. AIS_Items[item].Name, NOTIFY_GENERIC, 5)
-            LocalPlayer():EmitSound("AIS_UI/panel_close.wav")
+            --notification.AddLegacy("[AIS] Obtained: " .. AIS_Items[item].Name, NOTIFY_GENERIC, 5)
+            --LocalPlayer():EmitSound("AIS_UI/panel_close.wav")
+
+            AIS_Notify("Obtained item: " .. AIS_Items[item].Name, nil, AIS_Items[item].Icon, 5, "AIS_UI/panel_close.wav")
 
         elseif action == "Remove" then
             PlayerInventory[item] = nil
             if AIS_DebugMode then
                 print("[AIS CLIENT] Removed item from inventory: " .. item  .. " | Calling revalidate...")
             end
-            notification.AddLegacy("[AIS] Removed: " .. AIS_Items[item].Name, NOTIFY_GENERIC, 5)
-            LocalPlayer():EmitSound("AIS_UI/panel_close.wav")
+            --notification.AddLegacy("[AIS] Removed: " .. AIS_Items[item].Name, NOTIFY_GENERIC, 5)
+            AIS_Notify("Removed item: " .. AIS_Items[item].Name, nil, AIS_Items[item].Icon, 5, "AIS_UI/panel_close.wav")
         elseif action == "Clear" then
             PlayerInventory = {}
             if AIS_DebugMode then
                 print("[AIS CLIENT] Cleared inventory | Calling revalidate...")
             end
-            notification.AddLegacy("[AIS] Your inventory has been cleared!", NOTIFY_GENERIC, 5)
-            LocalPlayer():EmitSound("AIS_UI/cyoa_key_minimize.wav")
+            --notification.AddLegacy("[AIS] Your inventory has been cleared!", NOTIFY_GENERIC, 5)
+            AIS_Notify("Inventory has been cleared!", nil, nil, 5, "AIS_UI/cyoa_key_minimize.wav")
         end
         -- Rewalidacja ekwipunku (np. odświeżenie GUI)
         AIS_InventoryGridRevalidate()
@@ -423,8 +438,6 @@ if CLIENT then
             PlayerInventory[item] = nil
         end
 
-
-
         if AIS_DebugMode then
             print("[AIS CLIENT] Destroyed item: " .. item .. (foundSlot and (" from slot " .. foundSlot) or " (not equipped)"))
         end
@@ -436,6 +449,108 @@ if CLIENT then
             net.WriteString(foundSlot or "") -- pusty string, jeśli nie było slotu
         net.SendToServer()
     end
+
+    function PLAYERCLIENT:HasEquippedItem(item)
+
+        for _, equippedItem in pairs(PlayerEquippedItems) do
+            if equippedItem == item then
+                return true
+            end
+        end
+
+        return false
+    end
+
+
+    local AIS_NotificationQueue = {}
+    local AIS_CurrentNotification = nil
+
+    function AIS_Notify(text, notifIcon, itemIcon, duration, sound)
+        local notif = {
+            text = text,
+            icon = notifIcon or nil,
+            itemIcon = itemIcon or nil,
+            notifsound = sound or "AIS_UI/panel_close.wav",
+            duration = duration or 5,
+            startTime = 0 -- ustawione dopiero przy aktywacji!
+        }
+
+        table.insert(AIS_NotificationQueue, notif)
+
+        if AIS_DebugMode then
+            print("[AIS CLIENT] Notification enqueued: " .. text)
+        end
+    end
+
+    local NotifBG = Material("materials/notification_bg.png")
+
+    hook.Add("HUDPaint", "AIS_Notifications", function()
+        local x = ScrW() / 2
+        local y = ScrH() / 2
+
+        if not AIS_CurrentNotification and #AIS_NotificationQueue > 0 then
+            AIS_CurrentNotification = table.remove(AIS_NotificationQueue, 1)
+            AIS_CurrentNotification.startTime = CurTime()
+        end
+
+        local notif = AIS_CurrentNotification
+        if not notif then return end
+
+        local icon = notif.icon and Material(notif.icon) or nil
+        local itemIcon = notif.itemIcon and Material(notif.itemIcon) or nil
+        local text = notif.text or ""
+        local notificationSound = notif.notifsound or "AIS_UI/panel_close.wav"
+
+        local timePassed = CurTime() - notif.startTime
+        local timeLeft = notif.duration - timePassed
+
+        local alpha = 255
+        if timeLeft < 2 then
+            alpha = math.Clamp(timeLeft / 2, 0, 1) * 255
+        end
+
+        surface.SetFont("ChatFont")
+        local textWidth, textHeight = surface.GetTextSize(text)
+
+        surface.SetMaterial(NotifBG)
+        surface.SetDrawColor(0, 0, 0, alpha)
+        surface.DrawTexturedRect(x - 150, y + 200, 300, 40)
+
+        draw.SimpleText(text, "ChatFont", x, y + 220, Color(255, 255, 255, alpha), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+
+        if #AIS_NotificationQueue > 0 then
+            draw.SimpleText("Left: " .. #AIS_NotificationQueue .. " |  Next in: " .. math.Round(timeLeft, 1), "ChatFont", x, y + 250, Color(251, 255, 0), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+        end
+
+        if icon then
+            surface.SetDrawColor(255, 255, 255, alpha)
+            surface.DrawOutlinedRect(x - 25, y + 150, 50, 50, 2)
+            surface.SetDrawColor(0, 0, 0, alpha)
+            surface.DrawRect(x - 23, y + 152, 46, 46)
+
+            surface.SetMaterial(icon)
+            surface.SetDrawColor(255, 255, 255, alpha)
+            surface.DrawTexturedRectRotated(x, y + 175, 50, 50, 0)
+        elseif itemIcon then
+            surface.SetDrawColor(255, 255, 255, alpha)
+            surface.DrawOutlinedRect(x - 25, y + 150, 50, 50, 2)
+            surface.SetDrawColor(0, 0, 0, alpha)
+            surface.DrawRect(x - 23, y + 152, 46, 46)
+
+            surface.SetMaterial(itemIcon)
+            surface.SetDrawColor(255, 255, 255, alpha)
+            surface.DrawTexturedRectRotated(x, y + 175, 50, 50, 0)
+        end
+
+        if notificationSound and not notif.PlayedSound then
+            LocalPlayer():EmitSound(notificationSound, 75, 100)
+            notif.PlayedSound = true
+        end
+
+        if timePassed > notif.duration then
+            AIS_CurrentNotification = nil
+        end
+    end)
 
 
 end

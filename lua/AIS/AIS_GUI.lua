@@ -7,7 +7,7 @@ if CLIENT then
     end )
 
     local equipmentSlots = {
-        "Head", "Torso", "Arms", "Gloves", "Pants", "Boots", "Trinket 1", "Trinket 2", "Trinket 3", "Trinket 4"
+        "Head", "Chest", "Arms", "Gloves", "Pants", "Boots", "Trinket 1", "Trinket 2", "Trinket 3", "Trinket 4"
     }
 
     AIS_AttributeLocalization = {
@@ -74,6 +74,8 @@ if CLIENT then
     local function OpenAISInventory(user)
         if not IsValid(user) or not user:IsPlayer() then return end
         if IsValid(AISInventoryFrame) then AISInventoryFrame:Remove() end
+
+        local AIS_RealismMode = GetConVar("AIS_RealismMode"):GetBool()
 
         ---------------------[MAIN GUI FRAME]---------------------
         AISInventoryFrame = vgui.Create("DFrame")
@@ -157,8 +159,67 @@ if CLIENT then
 
             local totalReduction = (1 - CalculateDamageReduction(totalArmor)) * 100
             local totalELReduction = (1 - CalculateDamageReduction(totalELArmor)) * 100
-            draw.SimpleText(string.format("Armor: %d | Damage Reduction: %.2f%%", totalArmor, totalReduction), font, 10, y, Color(0, 255, 150))
-            draw.SimpleText(string.format("Elem. Armor: %d | Damage Reduction: %.2f%%", totalELArmor, totalELReduction), font, 10, y + 20, Color(0, 255, 150))
+
+            if not AIS_RealismMode then
+                draw.SimpleText(string.format("Armor: %d | Damage Reduction: %.2f%%", totalArmor, totalReduction), font, 10, y, Color(0, 255, 150))
+                draw.SimpleText(string.format("Elem. Armor: %d | Damage Reduction: %.2f%%", totalELArmor, totalELReduction), font, 10, y + 20, Color(0, 255, 150))
+            else
+                local armorGroups = {
+                    Head = { "Head" },
+                    Chest = { "Chest" },
+                    Arms = { "Arms", "Gloves" },
+                    Legs = { "Pants", "Boots" }
+                }
+
+                local groupTotals = {}
+
+                -- Inicjalizacja grup
+                for group, slots in pairs(armorGroups) do
+                    groupTotals[group] = { armor = 0, elarmor = 0 }
+                end
+
+                for _, slotPanel in ipairs(AISslotList or {}) do
+                    local slotName = slotPanel.name
+                    local itemObj = slotPanel.ItemOnSlot
+
+                    local itemData
+                    if itemObj and itemObj.AIS_ItemID then
+                        itemData = AIS_Items[itemObj.AIS_ItemID]
+                    end
+
+                    if itemObj and itemData then
+                        local armor = itemData.Attributes and itemData.Attributes["ArmorPoints"] or 0
+                        local elarmor = itemData.Attributes and itemData.Attributes["ELArmorPoints"] or 0
+
+                        for group, slots in pairs(armorGroups) do
+                            for _, slot in ipairs(slots) do
+                                if string.lower(slotName) == string.lower(slot) then
+                                    groupTotals[group].armor = groupTotals[group].armor + armor
+                                    groupTotals[group].elarmor = groupTotals[group].elarmor + elarmor
+                                end
+                            end
+                        end
+                    end
+                end
+
+                -- Wyświetlenie podsumowania per grupa
+                for _, group in ipairs({ "Head", "Chest", "Arms", "Legs" }) do
+                    local data = groupTotals[group]
+                    local armor = data.armor
+                    local elarmor = data.elarmor
+
+                    local red = (1 - CalculateDamageReduction(armor)) * 100
+                    local elred = (1 - CalculateDamageReduction(elarmor)) * 100
+
+                    draw.SimpleText(
+                        string.format("%s: (%d|%d) >> %.2f%% Dmg Red. | %.2f%% Elem. Red.",
+                            group, armor, elarmor, red, elred
+                        ),
+                        font, 10, y, Color(0, 255, 150)
+                    )
+                    y = y + 20
+                end
+            end
         end
 
 
