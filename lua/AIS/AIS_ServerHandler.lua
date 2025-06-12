@@ -105,7 +105,7 @@ if SERVER then
                 for _, slot in ipairs(slots) do
                     if slotTable[slot] then
                         AddItemArmor(slotTable[slot])
-                        IfArmored = true -- ✅ pancerz pokrywa miejsce trafienia
+                        IfArmored = true 
                     end
                 end
             end
@@ -113,7 +113,7 @@ if SERVER then
             for _, itemID in pairs(slotTable) do
                 AddItemArmor(itemID)
             end
-            IfArmored = totalArmor > 0 -- opcjonalnie, żeby w trybie arcade też był efekt
+            IfArmored = totalArmor > 0
         end
 
         local dmgType = dmginfo:GetDamageType()
@@ -186,13 +186,13 @@ if SERVER then
                     if hookData.HookType then
                         local hookID = "AIS_ITEM_SERVERHOOK_" .. itemID .. "_" .. tostring(index)
 
-                        -- Zabezpieczenie
+                        -- Security check
                         if type(hookData.HookFunction) ~= "function" then
                             print("[AIS] Invalid HookFunction in item: " .. itemID)
                             continue
                         end
 
-                        -- Tworzenie lub aktualizacja hooka
+                        -- Create or update the hook
                         if not hookData.HookInit then
                             hookData.LastHookFunction = hookData.HookFunction
 
@@ -219,19 +219,19 @@ if SERVER then
     end
 
     hook.Add("Think", "AIS_ApplyWhenWearing", function()
-        for _, ply in ipairs(player.GetAll()) do
-            local slots = AIS_EquipedSlots[ply]
-            if not slots then continue end
+        for ply, slots in pairs(AIS_EquipedSlots) do
+            if not IsValid(ply) or not ply:Alive() then continue end
 
-            for _, item in pairs(slots) do
-                local itemData = AIS_Items[item]
+            for slot, itemName in pairs(slots) do
+                local itemData = AIS_Items[itemName]
                 if itemData and isfunction(itemData.WhenWearing) then
                     local args = itemData.ExtraWearingArgs or {}
-                    itemData.WhenWearing(ply, item, unpack(args))
+                    itemData.WhenWearing(ply, slot, unpack(args))
                 end
             end
         end
     end)
+
 
     hook.Add("PlayerSpawn", "AIS_OnEquipOnRespawn", function(ply)
         local slots = AIS_EquipedSlots[ply]
@@ -266,13 +266,13 @@ if CLIENT then
                     if hookData.HookType then
                         local hookID = "AIS_ITEM_CLIENTHOOK_" .. itemID .. "_" .. tostring(index)
 
-                        -- Zabezpieczenie
+                        -- Security check
                         if type(hookData.HookFunction) ~= "function" then
                             print("[AIS] Invalid HookFunction in item: " .. itemID)
                             continue
                         end
 
-                        -- Tworzenie lub aktualizacja hooka
+                        -- Create or update the hook
                         if not hookData.HookInit then
                             hookData.LastHookFunction = hookData.HookFunction
 

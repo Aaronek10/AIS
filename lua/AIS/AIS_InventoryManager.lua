@@ -2,11 +2,11 @@ if SERVER then
     util.AddNetworkString("AIS_InventoryUpdater")
     util.AddNetworkString("AIS_ManageInventory")
 
-    -- Nowe tabele przechowujące dane ekwipunku i slotów
+    -- Tables to store items, player inventories, and equipped slots
     AIS_PlayerInventories = {}  -- { player: {item: true, ...} }
     AIS_EquipedSlots = {}       -- { player: {slot_name: item_name, ...} }
 
-    -- Hook do inicjalizacji ekwipunku gracza
+    -- Hook to initialize player inventories and equipped slots when a player spawns
     hook.Add("PlayerInitialSpawn", "SetupEquippedItems", function(ply)
         AIS_PlayerInventories[ply] = {}  -- Tworzymy nowy ekwipunek
         AIS_EquipedSlots[ply] = {}       -- Tworzymy nowy zestaw slotów
@@ -24,7 +24,7 @@ if SERVER then
     end
 
 
-    -- Funkcja dodawania przedmiotu do ekwipunku
+    -- Function to add an item to the player's inventory
     function PLAYER:AddAISItem(item)
 
         if AIS_Items[item] == nil then
@@ -44,7 +44,7 @@ if SERVER then
                 print("[AIS SERVER] Added item to inventory: " .. item)
             end
 
-            -- Aktualizacja klienta
+            -- Client update
             net.Start("AIS_ManageInventory")
             net.WriteString("Add")
             net.WriteString(item)
@@ -56,7 +56,7 @@ if SERVER then
         end
     end
 
-    -- Funkcja usuwania przedmiotu z ekwipunku
+    -- Function to remove an item from the player's inventory
     function PLAYER:RemoveAISItem(item)
 
         if AIS_Items[item] == nil then
@@ -70,7 +70,7 @@ if SERVER then
                 print("[AIS SERVER] Removed item from inventory: " .. item)
             end
 
-            -- Aktualizacja klienta
+            -- Client update
             net.Start("AIS_ManageInventory")
             net.WriteString("Remove")
             net.WriteString(item)
@@ -114,7 +114,7 @@ if SERVER then
 
     
 
-    -- Obsługa zarządzania ekwipunkiem
+    -- Operating on inventory management requests from clients
     net.Receive("AIS_ManageInventory", function(_, ply)
         local action = net.ReadString()
         local InvPlayer = net.ReadPlayer()
@@ -248,7 +248,7 @@ if SERVER then
             print("[AIS SERVER] Cleared inventory for: " .. target:Nick())
         end
 
-        -- Poinformuj klienta, że jego inwentarz jest pusty
+        -- Inform the client about the cleared inventory | Triggers client-side notification and revalidation
         net.Start("AIS_ManageInventory")
         net.WriteString("Clear")
         net.Send(target)
@@ -259,7 +259,7 @@ end
 
 if CLIENT then
 
-    -- Zmienna przechowująca dane ekwipunku gracza na kliencie
+    -- Tables to store items, player inventory, and equipped items of local player
     PlayerInventory = {}  -- {item: true, ...}
     PlayerEquippedItems = {}  -- {slot_name: item_name, ...}
     
@@ -276,7 +276,7 @@ if CLIENT then
         end
     end)
 
-    -- Odbieranie zaktualizowanego ekwipunku
+    -- Receiving the initial inventory from the server
     net.Receive("AIS_InventoryUpdater", function()
         PlayerInventory = net.ReadTable()
         if AIS_DebugMode then
@@ -286,7 +286,7 @@ if CLIENT then
         LocalPlayer():EmitSound("AIS_UI/cyoa_node_absent.wav")
     end)
 
-    -- Odbieranie akcji zarządzania ekwipunkiem
+    -- Receiving inventory management actions from the server
     net.Receive("AIS_ManageInventory", function()
         local action = net.ReadString()
         local item = net.ReadString()
@@ -316,16 +316,16 @@ if CLIENT then
             --notification.AddLegacy("[AIS] Your inventory has been cleared!", NOTIFY_GENERIC, 5)
             AIS_Notify("Inventory has been cleared!", nil, nil, 5, "AIS_UI/cyoa_key_minimize.wav")
         end
-        -- Rewalidacja ekwipunku (np. odświeżenie GUI)
+        -- Revalidate the inventory grid to reflect changes
         AIS_InventoryGridRevalidate()
     end)
 
-    -- Funkcja zwracająca ekwipunek gracza
+    -- Function returning the player's inventory
     function PLAYERCLIENT:GetAISInventory()
         return PlayerInventory
     end
 
-    -- Funkcja ekwipowania przedmiotu
+    -- Function to equip an item to a specific slot
     function PLAYERCLIENT:EquipItem(item, slot)
         if not item or not slot then
             if AIS_DebugMode then
@@ -364,6 +364,7 @@ if CLIENT then
         net.SendToServer()
     end
 
+    -- Function to unequip an item from a specific slot
     function PLAYERCLIENT:UnequipItem(item, slot)
         if not item or not slot then
             if AIS_DebugMode then
@@ -386,13 +387,6 @@ if CLIENT then
             return
         end
 
-        -- Tu możesz pominąć ItemFitSlot jeśli po stronie klienta przedmiot już był przypisany do slotu.
-        -- Ale jeśli chcesz zabezpieczenie: odkomentuj poniżej:
-        -- if not ItemFitSlot(slot, itemData) then
-        --     print("[AIS CLIENT] Unequip Item failed: slot does not match item requirements.")
-        --     return
-        -- end
-
         if AIS_DebugMode then
             print("[AIS CLIENT] Unequipped item: " .. item .. " from slot: " .. tostring(slot))
         end
@@ -406,6 +400,7 @@ if CLIENT then
         net.SendToServer()
     end
 
+    -- Function to destroy an item (remove it from inventory and unequip if necessary)
     function PLAYERCLIENT:DestroyItem(item)
         if not item then
             if AIS_DebugMode then
@@ -414,7 +409,7 @@ if CLIENT then
             return
         end
 
-        -- Znajdź slot, w którym item jest założony
+
         local foundSlot = nil
         for slot, equippedItem in pairs(PlayerEquippedItems) do
             if equippedItem == item then
@@ -423,7 +418,6 @@ if CLIENT then
             end
         end
 
-        -- Usuń ze slotu jeśli był założony
         if foundSlot then
             self:UnequipItem(item, foundSlot)
         end
@@ -446,10 +440,11 @@ if CLIENT then
             net.WriteString("Destroy")
             net.WritePlayer(LocalPlayer())
             net.WriteString(item)
-            net.WriteString(foundSlot or "") -- pusty string, jeśli nie było slotu
+            net.WriteString(foundSlot or "") -- Empty string if not equipped
         net.SendToServer()
     end
 
+    -- Function to check if the player has a specific item equipped
     function PLAYERCLIENT:HasEquippedItem(item)
 
         for _, equippedItem in pairs(PlayerEquippedItems) do
@@ -465,6 +460,8 @@ if CLIENT then
     local AIS_NotificationQueue = {}
     local AIS_CurrentNotification = nil
 
+    -- Function to notify the player with a message
+    -- This function will queue notifications to be displayed on the screen
     function AIS_Notify(text, notifIcon, itemIcon, duration, sound)
         local notif = {
             text = text,
@@ -472,7 +469,7 @@ if CLIENT then
             itemIcon = itemIcon or nil,
             notifsound = sound or "AIS_UI/panel_close.wav",
             duration = duration or 5,
-            startTime = 0 -- ustawione dopiero przy aktywacji!
+            startTime = 0 -- Will be set when the notification is displayed
         }
 
         table.insert(AIS_NotificationQueue, notif)

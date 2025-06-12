@@ -114,8 +114,7 @@ if CLIENT then
             local y = 10
             local padding = 5
             local font = "TargetID"
-            
-            -- Nick + zdrowie
+
             draw.SimpleText("Player: " .. ply:Nick(), font, 10, y, color_white)
             y = y + 20
             draw.SimpleText("Health: " .. ply:Health() .. " / " .. ply:GetMaxHealth(), font, 10, y, Color(200, 255, 200))
@@ -173,7 +172,7 @@ if CLIENT then
 
                 local groupTotals = {}
 
-                -- Inicjalizacja grup
+                -- Initialize totals for each group
                 for group, slots in pairs(armorGroups) do
                     groupTotals[group] = { armor = 0, elarmor = 0 }
                 end
@@ -236,7 +235,7 @@ if CLIENT then
         --------------------------------[MODEL]--------------------------------
         local modelPanel = vgui.Create("DModelPanel", centerPanel)
         modelPanel:Dock(FILL)
-        modelPanel:DockMargin(5, 5, 5, 20) -- zostaw miejsce na sloty na dole
+        modelPanel:DockMargin(5, 5, 5, 20) -- Margin for slots on bottom
         modelPanel:SetModel(user:GetModel())
         modelPanel:SetAnimated(true)
         
@@ -291,7 +290,6 @@ if CLIENT then
         AISItemGrid:SetMinimumSize(leftPanel:GetTall(), leftPanel:GetWide())
         AISItemGrid:Receiver("inventorygrid", function(self, panels, dropped, _, x, y)
             if dropped then
-                -- Obsłuż przedmiot wracający do gridu
                 local item = panels[1]
                 local itemData = item.AISItem_Data
                 item:SetParent(self)
@@ -378,7 +376,7 @@ if CLIENT then
             slotContainer:AddPanel(slot)
         end
 
-        AIS_InventoryGridRevalidate() -- Sprawdzenie wyposażenia
+        AIS_InventoryGridRevalidate() -- Revalidate the inventory grid on creation 
     end
 
 
@@ -489,7 +487,7 @@ if CLIENT then
                     inspectFrame:ShowCloseButton(true)
                     inspectFrame:MakePopup()
 
-                    -- Ikona przedmiotu
+                    -- Icon of item
                     inspectFrame.inspectImage = vgui.Create("DImage", inspectFrame)
                     inspectFrame.inspectImage:SetSize(400, 400)
                     inspectFrame.inspectImage:SetPos(10, inspectFrame:GetTall() / 2 - 200)
@@ -513,7 +511,7 @@ if CLIENT then
                         end
                     end
 
-                    -- Składamy finalny markup
+                    -- Completed description parsing
                     local parsed = markup.Parse(
                         "<font=ChatFont>" ..
                             "<color=255,255,255><b>Description:</b></color>\n" ..
@@ -525,7 +523,7 @@ if CLIENT then
                     )
 
 
-                    -- Panelek na opis
+                    -- Description panel
                     inspectFrame.DescriptionPanel = vgui.Create("DPanel", inspectFrame)
                     inspectFrame.DescriptionPanel:SetPos(inspectFrame:GetWide() / 2 + 20, 30)
                     inspectFrame.DescriptionPanel:SetSize(375, parsed:GetHeight() + 20)
@@ -533,7 +531,7 @@ if CLIENT then
                         parsed:Draw(0, 0, TEXT_ALIGN_LEFT)
                     end
 
-                    -- Przycisk zamykania
+                    -- Close button
                     inspectFrame.CloseButton = vgui.Create("DButton", inspectFrame)
                     inspectFrame.CloseButton:SetText("Close")
                     inspectFrame.CloseButton:SetSize(80, 30)
@@ -584,7 +582,7 @@ if CLIENT then
                     SlotString
                 )
 
-                -- Parsowanie i tworzenie tooltipa
+                -- Parsing and creating the markup
                 local markup = markup.Parse(formattedDesc, 300)
 
                 ItemTooltip = vgui.Create("DPanel")
