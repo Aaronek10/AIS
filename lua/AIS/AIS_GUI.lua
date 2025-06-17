@@ -171,9 +171,7 @@ if CLIENT then
                 }
 
                 local groupTotals = {}
-
-                -- Initialize totals for each group
-                for group, slots in pairs(armorGroups) do
+                for group, _ in pairs(armorGroups) do
                     groupTotals[group] = { armor = 0, elarmor = 0 }
                 end
 
@@ -190,11 +188,31 @@ if CLIENT then
                         local armor = itemData.Attributes and itemData.Attributes["ArmorPoints"] or 0
                         local elarmor = itemData.Attributes and itemData.Attributes["ELArmorPoints"] or 0
 
-                        for group, slots in pairs(armorGroups) do
-                            for _, slot in ipairs(slots) do
-                                if string.lower(slotName) == string.lower(slot) then
+                        -- Sprawdź wszystkie grupy, czy ten slot się w nich mieści
+                        for group, groupSlots in pairs(armorGroups) do
+                            for _, definedSlot in ipairs(groupSlots) do
+                                if string.lower(slotName) == string.lower(definedSlot) then
                                     groupTotals[group].armor = groupTotals[group].armor + armor
                                     groupTotals[group].elarmor = groupTotals[group].elarmor + elarmor
+                                end
+                            end
+                        end
+
+                        -- UWZGLĘDNIJ CoverHitGroup!
+                        local covers = itemData.CoverHitGroup
+                        if isstring(covers) then
+                            covers = { covers }
+                        end
+
+                        if istable(covers) then
+                            for _, coverSlot in ipairs(covers) do
+                                for group, groupSlots in pairs(armorGroups) do
+                                    for _, definedSlot in ipairs(groupSlots) do
+                                        if string.lower(coverSlot) == string.lower(definedSlot) then
+                                            groupTotals[group].armor = groupTotals[group].armor + armor
+                                            groupTotals[group].elarmor = groupTotals[group].elarmor + elarmor
+                                        end
+                                    end
                                 end
                             end
                         end
@@ -511,17 +529,30 @@ if CLIENT then
                         end
                     end
 
-                    -- Completed description parsing
+                    local coverInfo = ""
+                    if data.CoverHitGroup then
+                        local covers = data.CoverHitGroup
+                        if isstring(covers) then
+                            covers = { covers }
+                        end
+
+                        if istable(covers) and #covers > 0 then
+                            coverInfo = "<color=255,230,150><b>Covers additionally:</b> </color><color=200,200,200>" ..
+                                table.concat(covers, ", ") .. "</color>\n"
+                        end
+                    end
+
                     local parsed = markup.Parse(
                         "<font=ChatFont>" ..
                             "<color=255,255,255><b>Description:</b></color>\n" ..
                             "<color=200,200,200>" .. (data.Description or "No description.") .. "</color>\n\n" ..
+
                             "<color=150,200,255><b>Stats:</b></color>\n" ..
-                            attributeLines ..
+                            attributeLines .. "\n" ..
+                            coverInfo ..
                         "</font>",
                         375
                     )
-
 
                     -- Description panel
                     inspectFrame.DescriptionPanel = vgui.Create("DPanel", inspectFrame)
@@ -574,13 +605,30 @@ if CLIENT then
 
                 local attributeBlock = GetItemAttributeBlock(data)
 
+                local extraCovers = ""
+                if data.CoverHitGroup then
+                    if istable(data.CoverHitGroup) then
+                        if #data.CoverHitGroup > 0 then
+                            extraCovers = "\n<color=100,200,100>Additionally covers: " .. table.concat(data.CoverHitGroup, ", ") .. "</color>"
+                        end
+                    elseif isstring(data.CoverHitGroup) and data.CoverHitGroup ~= "" then
+                        extraCovers = "\n<color=100,200,100>Additionally covers: " .. data.CoverHitGroup .. "</color>"
+                    end
+                end
+
+                local attributeText = attributeBlock ~= "" and ("\n\n" .. attributeBlock) or ""
+                local extraCoverText = extraCovers ~= "" and ("\n" .. extraCovers) or ""
+
                 local formattedDesc = string.format(
-                    "<font=TargetIDSmall><b>%s</b>\n<color=200,200,200>%s</color>%s\n\n<color=150,150,255>Slot: %s</color></font>",
+                    "<font=TargetIDSmall><b>%s</b>\n<color=200,200,200>%s</color>%s%s\n\n<color=150,150,255>Slot: %s</color></font>",
                     name,
                     description,
-                    attributeBlock ~= "" and ("\n\n" .. attributeBlock) or "",
+                    attributeText,
+                    extraCoverText,
                     SlotString
                 )
+
+
 
                 -- Parsing and creating the markup
                 local markup = markup.Parse(formattedDesc, 300)

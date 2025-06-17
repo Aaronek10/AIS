@@ -49,6 +49,7 @@ if SERVER then
             net.WriteString("Add")
             net.WriteString(item)
             net.Send(self)
+
         else
             if AIS_DebugMode then
                 print("[AIS SERVER] Item already in inventory: " .. item)
@@ -155,6 +156,16 @@ if SERVER then
                 itemData.OnEquip(InvPlayer, item, unpack(args))
             end
 
+            if itemData and isfunction(itemData.OnUse) then
+                if not AIS_ActiveItemPlayerManager[ply] then
+                    AIS_ActiveItemPlayerManager[ply] = {}
+                end
+
+                if not table.HasValue(AIS_ActiveItemPlayerManager[ply], item) then
+                    table.insert(AIS_ActiveItemPlayerManager[ply], item)
+                end
+            end
+
         elseif action == "Unequip" then
             if AIS_EquipedSlots[InvPlayer][slot] == item then
                 AIS_EquipedSlots[InvPlayer][slot] = nil
@@ -168,6 +179,22 @@ if SERVER then
                     local args = itemData.ExtraUnEquipArgs or {}
                     itemData.OnUnEquip(InvPlayer, item, unpack(args))
                 end
+
+                local list = AIS_ActiveItemPlayerManager[InvPlayer]
+                if list then
+                    for i, v in ipairs(list) do
+                        if v == item then
+                            table.remove(list, i)
+
+                            if AIS_DebugMode then
+                                print("[AIS SERVER] Removed Active Item: " .. item)
+                            end
+
+                            break
+                        end
+                    end
+                end
+                
             else
                 if AIS_DebugMode then
                     print("[AIS SERVER] Unequip failed: slot doesn't contain " .. item)
@@ -181,6 +208,7 @@ if SERVER then
                     print("[AIS SERVER] Destroyed " .. item .. " from slot " .. slot)
                     PrintTable(AIS_EquipedSlots[InvPlayer])
                 end
+
             end
 
             AIS_PlayerInventories[InvPlayer][item] = nil
@@ -356,6 +384,22 @@ if CLIENT then
         end
         PlayerEquippedItems[slot] = item
 
+        if itemData and isfunction(itemData.OnUse) then
+            local activeitemlist = AIS_LocalPlayerActiveItemManager.List
+            if not table.HasValue(activeitemlist, item) then
+                table.insert(activeitemlist, item)
+
+                -- Jeśli to pierwszy aktywny item, ustaw jako wybrany
+                if not AIS_LocalPlayerActiveItemManager.Current then
+                    AIS_LocalPlayerActiveItemManager.Current = 1
+                end
+
+                if AIS_DebugMode then
+                    print("[AIS CLIENT] Added Active Item: " .. item)
+                end
+            end
+        end
+
         net.Start("AIS_ManageInventory")
         net.WriteString("Equip")
         net.WritePlayer(LocalPlayer())
@@ -391,6 +435,34 @@ if CLIENT then
             print("[AIS CLIENT] Unequipped item: " .. item .. " from slot: " .. tostring(slot))
         end
         PlayerEquippedItems[slot] = nil
+
+        if AIS_Items[item] and isfunction(AIS_Items[item].OnUse) then
+            local manager = AIS_LocalPlayerActiveItemManager
+            if manager and manager.List then
+                local list = manager.List
+                for i = #list, 1, -1 do
+                    if list[i] == item then
+                        table.remove(list, i)
+
+                        if AIS_DebugMode then
+                            print("[AIS CLIENT] Removed Active Item: " .. item)
+                        end
+
+                        if manager.Current and manager.Current == i then
+                            if #list > 0 then
+                                manager.Current = ((i - 1) % #list) + 1
+                            else
+                                manager.Current = nil
+                            end
+                        elseif manager.Current and manager.Current > i then
+                            manager.Current = manager.Current - 1
+                        end
+
+                        break
+                    end
+                end
+            end
+        end
 
         net.Start("AIS_ManageInventory")
         net.WriteString("Unequip")

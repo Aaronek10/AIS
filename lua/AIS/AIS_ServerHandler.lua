@@ -90,31 +90,51 @@ if SERVER then
         if AIS_RealismMode then
             local hitgroup = ply:LastHitGroup()
             local slotForHitGroup = {
-                [HITGROUP_HEAD] = {"Head"},
-                [HITGROUP_CHEST] = {"Chest"},
-                [HITGROUP_STOMACH] = {"Chest"},
+                [HITGROUP_HEAD] = "Head",
+                [HITGROUP_CHEST] = "Chest",
+                [HITGROUP_STOMACH] = "Chest",
                 [HITGROUP_LEFTARM] = {"Arms", "Gloves"},
                 [HITGROUP_RIGHTARM] = {"Arms", "Gloves"},
                 [HITGROUP_LEFTLEG] = {"Pants", "Boots"},
                 [HITGROUP_RIGHTLEG] = {"Pants", "Boots"},
-                [HITGROUP_GENERIC] = {"Chest"},
+                [HITGROUP_GENERIC] = "Chest",
             }
 
-            local slots = slotForHitGroup[hitgroup]
-            if slots then
-                for _, slot in ipairs(slots) do
-                    if slotTable[slot] then
-                        AddItemArmor(slotTable[slot])
-                        IfArmored = true 
+            local rawSlot = slotForHitGroup[hitgroup]
+            local targetSlots = istable(rawSlot) and rawSlot or {rawSlot}
+
+            if targetSlots then
+                for slot, itemID in pairs(slotTable) do
+                    local itemData = AIS_Items[itemID]
+                    if not itemData then continue end
+
+                    if table.HasValue(targetSlots, slot) then
+                        AddItemArmor(itemID)
+                        IfArmored = true
+                    end
+
+                    local covers = itemData.CoverHitGroup
+                    if covers then
+                        local coverTable = istable(covers) and covers or {covers}
+                        for _, coveredSlot in ipairs(coverTable) do
+                            if table.HasValue(targetSlots, coveredSlot) then
+                                AddItemArmor(itemID)
+                                IfArmored = true
+                                break
+                            end
+                        end
                     end
                 end
             end
         else
+            -- Classic tryb bez hitgroup
             for _, itemID in pairs(slotTable) do
                 AddItemArmor(itemID)
             end
             IfArmored = totalArmor > 0
         end
+
+
 
         local dmgType = dmginfo:GetDamageType()
         local dmg = dmginfo:GetDamage()
