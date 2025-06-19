@@ -708,6 +708,22 @@ if CLIENT then
             end
         end
     end
+
+    function AIS_RefreshInventoryUI()
+        if not IsValid(AISInventoryFrame) or not AISslotList then return end
+
+        for _, slot in ipairs(AISslotList) do
+            if IsValid(slot.ItemOnSlot) then
+                slot.ItemOnSlot:SetParent(AISItemGrid)
+                slot.ItemOnSlot:SetPos(0, 0)
+                slot.ItemOnSlot.isEquipped = false
+                slot.ItemOnSlot.AssignedSlot = nil
+            end
+            slot.ItemOnSlot = nil
+        end
+
+        AIS_InventoryGridRevalidate()
+    end
     
     concommand.Add("Open_AIS_Inventory", function(user)
         if not IsValid(AISInventoryFrame) then

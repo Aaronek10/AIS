@@ -35,13 +35,7 @@ if SERVER then
         local dropSource = dropOnlyEquipped and AIS_EquipedSlots[ply] or AIS_PlayerInventories[ply]
         if not dropSource then return end
 
-        if dropOnlyEquipped then
-            ply:UpdateInventory("Equipped")
-        else
-            ply:UpdateInventory("All")
-        end
-
-        local origin = ply:GetPos() + Vector(0, 0, 10)
+        local origin = ply:WorldSpaceCenter()
         local itemCount = table.Count(dropSource)
         if itemCount == 0 then return end
 
@@ -78,6 +72,15 @@ if SERVER then
 
                 currentAngle = currentAngle + angleStep
             end
+        end
+
+        if dropOnlyEquipped then
+            AIS_EquipedSlots[ply] = {}
+            ply:UpdateInventory("Equipped")
+        else
+            AIS_PlayerInventories[ply] = {}
+            AIS_EquipedSlots[ply] = {}
+            ply:UpdateInventory("All")
         end
     end)
 end

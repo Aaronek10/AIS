@@ -344,6 +344,8 @@ if CLIENT then
                 print("[AIS CLIENT] Player Inventory Updated: ", PlayerInventory)
             end
         end
+
+        AIS_RefreshInventoryUI()
     end)
 
     -- Receiving inventory management actions from the server
