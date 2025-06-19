@@ -96,6 +96,30 @@ if SERVER then
         return false
     end
 
+    function PLAYER:UpdateInventory(equip)
+        if not AIS_PlayerInventories[self] then
+            AIS_PlayerInventories[self] = {}
+        end
+
+        if equip == "Equipped" then
+            net.Start("AIS_InventoryUpdater")
+            net.WriteString("Equipped")
+            net.WriteTable(AIS_EquipedSlots[self] or {})
+            net.Send(self)
+        elseif equip == "All" then
+            net.Start("AIS_InventoryUpdater")
+            net.WriteString("Inventory")
+            net.WriteTable(AIS_PlayerInventories[self] or {})
+            net.Send(self)
+        end
+
+
+
+        if AIS_DebugMode then
+            print("[AIS SERVER] Inventory updated for player: " .. self:Nick())
+        end
+    end
+
 
     --[[
     concommand.Add("ais_test", function(ply, cmd, args)
@@ -306,12 +330,20 @@ if CLIENT then
 
     -- Receiving the initial inventory from the server
     net.Receive("AIS_InventoryUpdater", function()
-        PlayerInventory = net.ReadTable()
-        if AIS_DebugMode then
-            print("[AIS CLIENT] Player Inventory Updated: ", PlayerInventory)
+        local updateType = net.ReadString()
+        local inventoryData = net.ReadTable()
+
+        if updateType == "Equipped" then
+            PlayerEquippedItems = inventoryData
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Equipped Items Updated: ", PlayerEquippedItems)
+            end
+        elseif updateType == "Inventory" then
+            PlayerInventory = inventoryData
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Player Inventory Updated: ", PlayerInventory)
+            end
         end
-        --notification.AddLegacy("[AIS] Your inventory has been updated!", NOTIFY_GENERIC, 5)
-        LocalPlayer():EmitSound("AIS_UI/cyoa_node_absent.wav")
     end)
 
     -- Receiving inventory management actions from the server
@@ -327,7 +359,7 @@ if CLIENT then
             --notification.AddLegacy("[AIS] Obtained: " .. AIS_Items[item].Name, NOTIFY_GENERIC, 5)
             --LocalPlayer():EmitSound("AIS_UI/panel_close.wav")
 
-            AIS_Notify("Obtained item: " .. AIS_Items[item].Name, nil, AIS_Items[item].Icon, 5, "AIS_UI/panel_close.wav")
+            AIS_Notify("Obtained item: " .. AIS_Items[item].Name, nil, AIS_Items[item].Icon, 3, "AIS_UI/panel_close.wav")
 
         elseif action == "Remove" then
             PlayerInventory[item] = nil
@@ -335,14 +367,14 @@ if CLIENT then
                 print("[AIS CLIENT] Removed item from inventory: " .. item  .. " | Calling revalidate...")
             end
             --notification.AddLegacy("[AIS] Removed: " .. AIS_Items[item].Name, NOTIFY_GENERIC, 5)
-            AIS_Notify("Removed item: " .. AIS_Items[item].Name, nil, AIS_Items[item].Icon, 5, "AIS_UI/panel_close.wav")
+            AIS_Notify("Removed item: " .. AIS_Items[item].Name, nil, AIS_Items[item].Icon, 3, "AIS_UI/panel_close.wav")
         elseif action == "Clear" then
             PlayerInventory = {}
             if AIS_DebugMode then
                 print("[AIS CLIENT] Cleared inventory | Calling revalidate...")
             end
             --notification.AddLegacy("[AIS] Your inventory has been cleared!", NOTIFY_GENERIC, 5)
-            AIS_Notify("Inventory has been cleared!", nil, nil, 5, "AIS_UI/cyoa_key_minimize.wav")
+            --AIS_Notify("Inventory has been cleared!", nil, nil, 5, "AIS_UI/cyoa_key_minimize.wav")
         end
         -- Revalidate the inventory grid to reflect changes
         AIS_InventoryGridRevalidate()

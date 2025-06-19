@@ -35,6 +35,20 @@ if CLIENT then
         return table.concat(lines, "\n")
     end
 
+    surface.CreateFont("AIS_InventoryFont", {
+        font = "Stratum2 Md",
+        size = ScreenScale(7),
+        weight = 500,
+        antialias = true,
+    })
+
+        surface.CreateFont("AIS_InventoryFontSmall", {
+        font = "Stratum2 Md",
+        size = ScreenScale(6),
+        weight = 500,
+        antialias = true,
+    })
+
     function CalculateDamageReduction(armor)
         if armor >= 0 then
             return 100 / (100 + armor)
@@ -45,15 +59,25 @@ if CLIENT then
 
     local ItemTooltip
     hook.Add("Think", "AIS_UpdateItemTooltip", function()
-
         local x, y = input.GetCursorPos()
-        localplayer.ItemTooltipPos = {x, y}
+        local offset = 10
+
         AIS_DebugMode = GetConVar("AIS_Debug"):GetBool()
+        localplayer.ItemTooltipPos = {x, y}
 
         if IsValid(ItemTooltip) then
-            ItemTooltip:SetPos(localplayer.ItemTooltipPos[1] + 10, localplayer.ItemTooltipPos[2] + 10)
+            local tooltipW, tooltipH = ItemTooltip:GetSize()
+            local posX = localplayer.ItemTooltipPos[1] + offset
+            local posY = localplayer.ItemTooltipPos[2] + offset
+
+            -- Zabezpieczenie przed wychodzeniem poza ekran
+            posX = math.Clamp(posX, 0, ScrW() - tooltipW)
+            posY = math.Clamp(posY, 0, ScrH() - tooltipH)
+
+            ItemTooltip:SetPos(posX, posY)
         end
     end)
+
 
     function ItemFitSlot(slotName, itemData)
         if not itemData or not itemData.Slot then return false end
@@ -113,7 +137,7 @@ if CLIENT then
             local ply = LocalPlayer()
             local y = 10
             local padding = 5
-            local font = "TargetID"
+            local font = "AIS_InventoryFont"
 
             draw.SimpleText("Player: " .. ply:Nick(), font, 10, y, color_white)
             y = y + 20
@@ -243,7 +267,7 @@ if CLIENT then
         --------------------[CLOSE BUTTON]--------------------
         local CloseButton = vgui.Create("DButton", statusPanel)
         CloseButton:SetText("Close Inventory")
-        CloseButton:SetSize(100, 30)
+        CloseButton:SetSize(ScrW() * 0.05, ScrH() * 0.035)
         CloseButton:SetPos(statusPanel:GetWide() - 110, 10)
         CloseButton.DoClick = function()
             user:EmitSound("AIS_UI/panel_open.wav")
@@ -284,7 +308,7 @@ if CLIENT then
         ----------------------------[EQUIPMENT SLOTS]----------------------------
         local bottomPanel = vgui.Create("DPanel", centerPanel)
         bottomPanel:Dock(BOTTOM)
-        bottomPanel:SetTall(180)
+        bottomPanel:SetTall(ScrH() * 0.15)
         bottomPanel:DockMargin(10, 0, 10, 10)
         bottomPanel.Paint = function(self, w, h)
             draw.RoundedBox(8, 0, 0, w, h, Color(20, 20, 20, 200))
@@ -331,7 +355,7 @@ if CLIENT then
 
         local function CreateSlot(name, parent)
             local slot = vgui.Create("DPanel", parent)
-            slot:SetSize(80, 100)
+            slot:SetSize(ScrW() * 0.04, 100)
             slot.ItemOnSlot = nil  -- <==  Stores What is equiped in this slot
             slot.name = name
             table.insert(AISslotList, slot)
@@ -543,7 +567,7 @@ if CLIENT then
                     end
 
                     local parsed = markup.Parse(
-                        "<font=ChatFont>" ..
+                        "<font=AIS_InventoryFont>" ..
                             "<color=255,255,255><b>Description:</b></color>\n" ..
                             "<color=200,200,200>" .. (data.Description or "No description.") .. "</color>\n\n" ..
 
@@ -620,7 +644,7 @@ if CLIENT then
                 local extraCoverText = extraCovers ~= "" and ("\n" .. extraCovers) or ""
 
                 local formattedDesc = string.format(
-                    "<font=TargetIDSmall><b>%s</b>\n<color=200,200,200>%s</color>%s%s\n\n<color=150,150,255>Slot: %s</color></font>",
+                    "<font=AIS_InventoryFontSmall><b>%s</b>\n<color=200,200,200>%s</color>%s%s\n\n<color=150,150,255>Slot: %s</color></font>",
                     name,
                     description,
                     attributeText,
@@ -646,7 +670,7 @@ if CLIENT then
                 end
 
                 ItemTooltip.Paint = function(self, w, h)
-                    draw.RoundedBox(6, 0, 0, w, h, Color(0, 0, 0, self:GetAlpha() * 0.86))
+                    draw.RoundedBox(6, 0, 0, w, h, Color(0, 0, 0, self:GetAlpha() * 0.95))
                     markup:Draw(10, 10, self:GetAlpha())
                 end
             end

@@ -99,6 +99,8 @@ if CLIENT then
         activeItemIndex = activeItemIndex + 1
         if activeItemIndex > #manager.List then activeItemIndex = 1 end
 
+        manager.Current = activeItemIndex
+
         if AIS_DebugMode then
             print("[AIS CLIENT] Switched active item to index: " .. activeItemIndex .. " (" .. manager.List[activeItemIndex] .. ")")
         end
@@ -141,6 +143,8 @@ if CLIENT then
 
         local activeItemIndex = manager.Current or 1
         local item = manager.List[activeItemIndex]
+        --local NextItem = manager.List[activeItemIndex + 1] or manager.List[1]
+        --local PrevItem = manager.List[activeItemIndex + 2] or manager.List[#manager.List]
         if not item then return end
         local itemData = AIS_Items[item]
         if not itemData then return end
@@ -179,7 +183,7 @@ if CLIENT then
         if cooldownDuration > 0 then
             local timePassed = CurTime() - cooldownStart
             if timePassed < cooldownDuration then
-                local fraction = 1 - (timePassed / cooldownDuration) -- od 1 do 0
+                local fraction = 1 - (timePassed / cooldownDuration)
                 drawCooldownCircle(iconX, iconY, iconSize / 2, fraction) -- +2, żeby było lekko większe niż ikona
             end
         end

@@ -17,7 +17,8 @@ AIS_Items = {
             ["ArmorPoints"] = 25,
         },
         ClientHooks = {},
-        ServerHooks = {}
+        ServerHooks = {},
+        ShowInMenu = false
     },
     BootsTest = {
         Icon = "materials/AIS_Items/boots.png",
@@ -38,7 +39,8 @@ AIS_Items = {
             ["ELArmorPoints"] = 0,
         },
         ClientHooks = {},
-        ServerHooks = {}
+        ServerHooks = {},
+        ShowInMenu = false
     },
     GlovesTest = {
         Icon = "materials/AIS_Items/gloves.png",
@@ -59,7 +61,8 @@ AIS_Items = {
             ["ELArmorPoints"] = 5,
         },
         ClientHooks = {},
-        ServerHooks = {}
+        ServerHooks = {},
+        ShowInMenu = false,
     },
     GlovesTestA = {
         Icon = "materials/AIS_Items/glovesA.png",
@@ -80,7 +83,8 @@ AIS_Items = {
             ["ELArmorPoints"] = 0,
         },
         ClientHooks = {},
-        ServerHooks = {}
+        ServerHooks = {},
+        ShowInMenu = false
     },
     TrinketTestA = {
         Icon = "entities/sent_ball.png",
@@ -101,7 +105,8 @@ AIS_Items = {
             ["ELArmorPoints"] = 1250,
         },
         ClientHooks = {},
-        ServerHooks = {}
+        ServerHooks = {},
+        ShowInMenu = false,
     },
     TrinketTestB = {
         Icon = "entities/sent_ball.png",
@@ -122,6 +127,7 @@ AIS_Items = {
             ["ELArmorPoints"] = 0,
         },
         ClientHooks = {},
-        ServerHooks = {}
+        ServerHooks = {},
+        ShowInMenu = false
     }
 }
