@@ -182,9 +182,12 @@ if CLIENT then
 
         if cooldownDuration > 0 then
             local timePassed = CurTime() - cooldownStart
+            local timeLeft = cooldownDuration - timePassed
+            local timeLeftString = timeLeft < 10 and string.format("%.1f", timeLeft) or math.ceil(timeLeft)
             if timePassed < cooldownDuration then
                 local fraction = 1 - (timePassed / cooldownDuration)
                 drawCooldownCircle(iconX, iconY, iconSize / 2, fraction) -- +2, żeby było lekko większe niż ikona
+                draw.SimpleTextOutlined(timeLeftString, "AIS_InventoryFont", iconX, iconY, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, Color(0, 0, 0))
             end
         end
     end)

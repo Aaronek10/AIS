@@ -25,7 +25,11 @@ if SERVER then
 
 
     -- Function to add an item to the player's inventory
-    function PLAYER:AddAISItem(item)
+    function PLAYER:AddAISItem(item, silent)
+
+        if silent == nil then
+            silent = false
+        end
 
         if AIS_Items[item] == nil then
             if AIS_DebugMode then
@@ -47,6 +51,7 @@ if SERVER then
             -- Client update
             net.Start("AIS_ManageInventory")
             net.WriteString("Add")
+            net.WriteBool(silent)
             net.WriteString(item)
             net.Send(self)
 
@@ -58,7 +63,13 @@ if SERVER then
     end
 
     -- Function to remove an item from the player's inventory
-    function PLAYER:RemoveAISItem(item)
+    function PLAYER:RemoveAISItem(item, silent)
+
+        if silent == nil then
+            silent = false
+        end
+
+        print("[AIS SERVER] Remove Item: " .. item .. " | Silent: " .. tostring(silent))
 
         if AIS_Items[item] == nil then
             print("[AIS SERVER] Item not found: " .. item)
@@ -74,6 +85,7 @@ if SERVER then
             -- Client update
             net.Start("AIS_ManageInventory")
             net.WriteString("Remove")
+            net.WriteBool(silent)
             net.WriteString(item)
             net.Send(self)
         else
@@ -333,16 +345,31 @@ if CLIENT then
         local updateType = net.ReadString()
         local inventoryData = net.ReadTable()
 
+
         if updateType == "Equipped" then
-            PlayerEquippedItems = inventoryData
+
+            if not table.IsEmpty(inventoryData) then
+                PlayerEquippedItems = inventoryData
+            else
+                PlayerEquippedItems = {}
+            end
+
             if AIS_DebugMode then
                 print("[AIS CLIENT] Equipped Items Updated: ", PlayerEquippedItems)
             end
+
         elseif updateType == "Inventory" then
-            PlayerInventory = inventoryData
+
+            if not table.IsEmpty(inventoryData) then
+                PlayerInventory = inventoryData
+            else
+                PlayerInventory = {}
+            end
+            
             if AIS_DebugMode then
                 print("[AIS CLIENT] Player Inventory Updated: ", PlayerInventory)
             end
+
         end
 
         AIS_RefreshInventoryUI()
@@ -351,32 +378,56 @@ if CLIENT then
     -- Receiving inventory management actions from the server
     net.Receive("AIS_ManageInventory", function()
         local action = net.ReadString()
+        local silent = net.ReadBool()
         local item = net.ReadString()
+
+        print("[AIS CLIENT] Manage Inventory Action: " .. action .. " | Item: " .. item .. " | Silent: " .. tostring(silent))
 
         if action == "Add" then
             PlayerInventory[item] = true
+
             if AIS_DebugMode then
                 print("[AIS CLIENT] Added item to inventory: " .. item .. " | Calling revalidate...")
             end
-            --notification.AddLegacy("[AIS] Obtained: " .. AIS_Items[item].Name, NOTIFY_GENERIC, 5)
-            --LocalPlayer():EmitSound("AIS_UI/panel_close.wav")
 
-            AIS_Notify("Obtained item: " .. AIS_Items[item].Name, nil, AIS_Items[item].Icon, 3, "AIS_UI/panel_close.wav")
+            if not silent then
+                AIS_Notify("Obtained item: " .. AIS_Items[item].Name, nil, AIS_Items[item].Icon, 3, "AIS_UI/panel_close.wav")
+            end
 
         elseif action == "Remove" then
             PlayerInventory[item] = nil
+
             if AIS_DebugMode then
                 print("[AIS CLIENT] Removed item from inventory: " .. item  .. " | Calling revalidate...")
             end
-            --notification.AddLegacy("[AIS] Removed: " .. AIS_Items[item].Name, NOTIFY_GENERIC, 5)
-            AIS_Notify("Removed item: " .. AIS_Items[item].Name, nil, AIS_Items[item].Icon, 3, "AIS_UI/panel_close.wav")
+
+            if not silent then
+                AIS_Notify("Removed item: " .. AIS_Items[item].Name, nil, AIS_Items[item].Icon, 3, "AIS_UI/panel_close.wav")
+            end
+
+            for i = #AIS_LocalPlayerActiveItemManager.List, 1, -1 do
+                if AIS_LocalPlayerActiveItemManager.List[i] == item then
+                    table.remove(AIS_LocalPlayerActiveItemManager.List, i)
+
+                    -- Popraw Current jeśli był na usuniętym indeksie
+                    if AIS_LocalPlayerActiveItemManager.Current == i then
+                        AIS_LocalPlayerActiveItemManager.Current = 1
+                    elseif AIS_LocalPlayerActiveItemManager.Current > #AIS_LocalPlayerActiveItemManager.List then
+                        AIS_LocalPlayerActiveItemManager.Current = #AIS_LocalPlayerActiveItemManager.List
+                    end
+                end
+            end
+
         elseif action == "Clear" then
+
             PlayerInventory = {}
+
             if AIS_DebugMode then
                 print("[AIS CLIENT] Cleared inventory | Calling revalidate...")
             end
-            --notification.AddLegacy("[AIS] Your inventory has been cleared!", NOTIFY_GENERIC, 5)
-            --AIS_Notify("Inventory has been cleared!", nil, nil, 5, "AIS_UI/cyoa_key_minimize.wav")
+
+            AIS_LocalPlayerActiveItemManager.List = {}
+            AIS_LocalPlayerActiveItemManager.Current = 1
         end
         -- Revalidate the inventory grid to reflect changes
         AIS_InventoryGridRevalidate()
@@ -587,6 +638,31 @@ if CLIENT then
 
     local NotifBG = Material("materials/notification_bg.png")
 
+    local function drawCirleTime(x, y, radius, fraction, color)
+        fraction = math.Clamp(fraction, 0, 1)
+        local startAngle = 270  -- punkt startowy (góra)
+        local angle = 360 * fraction -- rosnący kąt przeciwnie do ruchu wskazówek zegara
+
+        local vertices = {}
+        table.insert(vertices, { x = x, y = y }) -- środek koła
+
+        for i = startAngle, startAngle + angle, 3 do
+            local rad = math.rad(i)
+            table.insert(vertices, {
+                x = x + math.cos(rad) * radius,
+                y = y + math.sin(rad) * radius
+            })
+        end
+
+        if color then
+            surface.SetDrawColor(color)
+        else
+            surface.SetDrawColor(255, 255, 255, 200)  -- domyślny kolor biały z delikatną przezroczystością
+        end
+        draw.NoTexture()
+        surface.DrawPoly(vertices)
+    end
+
     hook.Add("HUDPaint", "AIS_Notifications", function()
         local x = ScrW() / 2
         local y = ScrH() / 2
@@ -621,9 +697,16 @@ if CLIENT then
 
         draw.SimpleText(text, "ChatFont", x, y + 220, Color(255, 255, 255, alpha), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
+        --[[
         if #AIS_NotificationQueue > 0 then
-            draw.SimpleText("Left: " .. #AIS_NotificationQueue .. " |  Next in: " .. math.Round(timeLeft, 1), "ChatFont", x, y + 250, Color(251, 255, 0), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+            --draw.SimpleText("Left: " .. #AIS_NotificationQueue .. " |  Next in: " .. math.Round(timeLeft, 1), "ChatFont", x, y + 250, Color(251, 255, 0), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+            drawCirleTime(x, y + 270, 20, timeLeft / notif.duration)
         end
+        ]]--
+
+        drawCirleTime(x, y + 250, 20, timeLeft / notif.duration, Color(255, 255, 255, 255 * (timeLeft / notif.duration)))
+        drawCirleTime(x, y + 250, 20, 1, Color(0, 0, 0, 255 * (timeLeft / notif.duration)))
+        draw.SimpleTextOutlined(string.format("%.1f", timeLeft), "AIS_InventoryFont", x, y + 250, Color(255, 255, 255, alpha), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER, 1, Color(0, 0, 0, alpha))
 
         if icon then
             surface.SetDrawColor(255, 255, 255, alpha)

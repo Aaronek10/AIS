@@ -42,12 +42,19 @@ if SERVER then
         local angleStep = 360 / itemCount
         local currentAngle = 0
 
-        for itemID, itemData in pairs(dropSource) do
-            if itemData then
+        for k, v in pairs(dropSource) do
+            local itemID
+
+            if isstring(v) then
+                itemID = v
+            elseif isstring(k) then
+                itemID = k
+            end
+
+            if itemID then
                 local item = ents.Create("AIS_ItemENT")
                 if not IsValid(item) then continue end
 
-                -- Oblicz offset w okręgu
                 local rad = math.rad(currentAngle)
                 local radius = 8
                 local offset = Vector(math.cos(rad), math.sin(rad), 0) * radius
@@ -55,7 +62,7 @@ if SERVER then
 
                 item:SetPos(pos)
                 item:SetAngles(Angle(0, 0, 0))
-                item:SetItemID(itemData)
+                item:SetItemID(itemID) -- już bez problemu
                 item:Spawn()
                 item:Activate()
 
@@ -70,6 +77,8 @@ if SERVER then
                     phys:SetVelocity(force)
                 end
 
+                ply:RemoveAISItem(itemID, true)
+
                 currentAngle = currentAngle + angleStep
             end
         end
@@ -82,6 +91,7 @@ if SERVER then
             AIS_EquipedSlots[ply] = {}
             ply:UpdateInventory("All")
         end
+        
     end)
 end
 
