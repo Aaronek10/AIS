@@ -109,28 +109,29 @@ if SERVER then
     end
 
     function PLAYER:UpdateInventory(equip)
-        if not AIS_PlayerInventories[self] then
-            AIS_PlayerInventories[self] = {}
+
+        local function SendCompressed(tag, tableData)
+            local json = util.TableToJSON(tableData or {})
+            local compressed = util.Compress(json)
+
+            net.Start("AIS_InventoryUpdater")
+            net.WriteString(tag)
+            net.WriteUInt(#compressed, 32)
+            net.WriteData(compressed, #compressed)
+            net.Send(self)
         end
 
         if equip == "Equipped" then
-            net.Start("AIS_InventoryUpdater")
-            net.WriteString("Equipped")
-            net.WriteTable(AIS_EquipedSlots[self] or {})
-            net.Send(self)
+            SendCompressed("Equipped", AIS_EquipedSlots[self] or {})
         elseif equip == "All" then
-            net.Start("AIS_InventoryUpdater")
-            net.WriteString("Inventory")
-            net.WriteTable(AIS_PlayerInventories[self] or {})
-            net.Send(self)
+            SendCompressed("Inventory", AIS_PlayerInventories[self] or {})
         end
-
-
 
         if AIS_DebugMode then
             print("[AIS SERVER] Inventory updated for player: " .. self:Nick())
         end
     end
+
 
 
     --[[
@@ -343,33 +344,21 @@ if CLIENT then
     -- Receiving the initial inventory from the server
     net.Receive("AIS_InventoryUpdater", function()
         local updateType = net.ReadString()
-        local inventoryData = net.ReadTable()
-
+        local len = net.ReadUInt(32)
+        local compressed = net.ReadData(len)
+        local json = util.Decompress(compressed)
+        local data = util.JSONToTable(json)
 
         if updateType == "Equipped" then
-
-            if not table.IsEmpty(inventoryData) then
-                PlayerEquippedItems = inventoryData
-            else
-                PlayerEquippedItems = {}
-            end
-
+            PlayerEquippedItems = data or {}
             if AIS_DebugMode then
-                print("[AIS CLIENT] Equipped Items Updated: ", PlayerEquippedItems)
+                print("[AIS CLIENT] Equipped Items Updated (Compressed): ", PlayerEquippedItems)
             end
-
         elseif updateType == "Inventory" then
-
-            if not table.IsEmpty(inventoryData) then
-                PlayerInventory = inventoryData
-            else
-                PlayerInventory = {}
-            end
-            
+            PlayerInventory = data or {}
             if AIS_DebugMode then
-                print("[AIS CLIENT] Player Inventory Updated: ", PlayerInventory)
+                print("[AIS CLIENT] Player Inventory Updated (Compressed): ", PlayerInventory)
             end
-
         end
 
         AIS_RefreshInventoryUI()
@@ -409,7 +398,6 @@ if CLIENT then
                 if AIS_LocalPlayerActiveItemManager.List[i] == item then
                     table.remove(AIS_LocalPlayerActiveItemManager.List, i)
 
-                    -- Popraw Current jeśli był na usuniętym indeksie
                     if AIS_LocalPlayerActiveItemManager.Current == i then
                         AIS_LocalPlayerActiveItemManager.Current = 1
                     elseif AIS_LocalPlayerActiveItemManager.Current > #AIS_LocalPlayerActiveItemManager.List then
