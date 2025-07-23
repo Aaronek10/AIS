@@ -75,6 +75,7 @@ if CLIENT then
 
         if CurTime() < lastUse + cooldown then
             if AIS_DebugMode then print("[AIS CLIENT] Item on cooldown: " .. item) end
+            AIS_Notify(AIS_Items[item].Name .. " is on cooldown!", nil, nil, 5)
             return
         end
 

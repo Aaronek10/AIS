@@ -12,7 +12,7 @@ if SERVER then
         AIS_EquipedSlots[ply] = {}       -- Tworzymy nowy zestaw slotów
     end)
 
-    local PLAYER = FindMetaTable("Player")
+    local PLAYER = FindMetaTable("Entity")
 
     function FindPlayerByName(name)
         name = string.lower(name)
@@ -356,6 +356,7 @@ if CLIENT then
             end
         elseif updateType == "Inventory" then
             PlayerInventory = data or {}
+            PlayerEquippedItems = {}
             if AIS_DebugMode then
                 print("[AIS CLIENT] Player Inventory Updated (Compressed): ", PlayerInventory)
             end

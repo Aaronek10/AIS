@@ -16,8 +16,13 @@ AIS_Items = {
         Attributes = {
             ["ArmorPoints"] = 25,
         },
+        OnUse = function(ent, item)
+        end,
+        OnUseClient = function(ent, item)
+        end,
         ClientHooks = {},
         ServerHooks = {},
+        SyncEvents = {},
         ShowInMenu = false
     },
     BootsTest = {

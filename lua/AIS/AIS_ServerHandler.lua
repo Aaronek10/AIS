@@ -1,5 +1,8 @@
 if SERVER then
     -- Physical Damage Types
+
+    util.AddNetworkString("AIS_SyncEventHandler")
+
     local Physical = {
         DMG_CRUSH,
         DMG_BULLET,
@@ -155,7 +158,14 @@ if SERVER then
         local finalDmg = dmg * reduction
         dmginfo:SetDamage(finalDmg)
         ply.AIS_LastHitPosition = dmginfo:GetDamagePosition()
-        ply.AIS_InflictorPosition = dmginfo:GetInflictor():GetPos()
+        if IsValid(dmginfo:GetInflictor()) then
+            ply.AIS_InflictorPosition = dmginfo:GetInflictor():GetPos()
+        elseif IsValid(dmginfo:GetAttacker()) then
+            ply.AIS_InflictorPosition = dmginfo:GetAttacker():GetPos()
+        else
+            ply.AIS_InflictorPosition = ply:WorldSpaceCenter()
+        end
+
 
 
         timer.Simple(0, function()
@@ -168,6 +178,7 @@ if SERVER then
                 effectData:SetNormal(ply.AIS_InflictorPosition - ply.AIS_LastHitPosition)
                 util.Effect("MetalSpark", effectData)
             else
+                effectData:SetColor(0)
                 util.Effect("BloodImpact", effectData)
             end
         end)
@@ -191,11 +202,11 @@ if SERVER then
 
 
     hook.Add("PlayerSpawn", "AIS_ArmorBloodEffect", function(ply) 
-        ply:SetBloodColor(DONT_BLEED)
+        ply:SetBloodColor(-1)
     end)
     
     hook.Add("PlayerInitialSpawn", "AIS_ArmorBloodEffect", function(ply) 
-        ply:SetBloodColor(DONT_BLEED)
+        ply:SetBloodColor(-1)
     end)
 
 
@@ -266,6 +277,29 @@ if SERVER then
         end
     end)
 
+    net.Receive("AIS_SyncEventHandler", function()
+        local TriggerEnt = net.ReadEntity()
+        local TriggerPos = net.ReadVector()
+        local ItemID = net.ReadString()
+        local ItemHookID = net.ReadString()
+
+        local SyncEvent = {
+            TriggerEnt = TriggerEnt,
+            TriggerPos = TriggerPos,
+            ItemID = ItemID,
+            ItemHookID = ItemHookID,
+            ProcTime = CurTime()
+        }
+
+        if AIS_DebugMode then
+            print("[AIS] Received Data about SyncEvent | ItemID: ", ItemID, " HookID: ", ItemHookID)
+        end
+
+        net.Start("AIS_SyncEventHandler")
+            net.WriteTable(SyncEvent)
+        net.Broadcast()
+    end)
+
 
 
     hook.Add("InitPostEntity", "AIS_CreateHooks", function() 
@@ -278,6 +312,55 @@ if SERVER then
 end
 
 if CLIENT then
+
+    AIS_SyncEventTable = {}
+
+    net.Receive("AIS_SyncEventHandler", function()
+        local SyncEvent = net.ReadTable()
+        if AIS_DebugMode then
+            print("[AIS] Received Data about SyncEvent from Server | ItemID: ", SyncEvent.ItemID, " HookID: ", SyncEvent.ItemHookID)
+        end
+        table.insert(AIS_SyncEventTable, SyncEvent)
+    end)
+
+    function GetSyncEventEnts(hookID)
+        local results = {}
+
+        for _, event in ipairs(AIS_SyncEventTable) do
+            if event.ItemHookID == hookID then
+                table.insert(results, event)
+            end
+        end
+
+        return results
+    end
+
+    function RemoveSyncEventEnt(ent, hookID)
+        for i = #AIS_SyncEventTable, 1, -1 do
+            local event = AIS_SyncEventTable[i]
+            if event.ItemHookID == hookID and event.TriggerEnt == ent then
+                table.remove(AIS_SyncEventTable, i)
+            end
+        end
+    end
+
+    function SendSyncEvent(itemID, hookID)
+        local ply = LocalPlayer()
+        local pos = ply:GetPos()
+        local ItemIDProc = itemID
+        local ItemHookID = hookID
+
+        net.Start("AIS_SyncEventHandler")
+            net.WriteEntity(ply)
+            net.WriteVector(pos)
+            net.WriteString(ItemIDProc)
+            net.WriteString(ItemHookID)
+        net.SendToServer()
+
+        if AIS_DebugMode then
+            print("[AIS] Sending SyncData to server | ItemID: ", ItemIDProc, " HookID: ", ItemHookID)
+        end
+    end
 
     local function CreateClientItemsHooks()
         for itemID, itemData in pairs(AIS_Items) do
@@ -318,13 +401,82 @@ if CLIENT then
         end
     end
 
+    local function CreateSyncItemsHooks()
+        for itemID, itemData in pairs(AIS_Items) do
+            if itemData.SyncEvents then
+                for index, hookData in ipairs(itemData.SyncEvents) do
+                    if hookData.HookType and hookData.HookID then
+                        local SyncEventHookID = "AIS_ITEM_SYNCEVENT_" .. itemID .. "_" .. hookData.HookID
+
+                        -- Security check
+                        if type(hookData.HookFunction) ~= "function" then
+                            print("[AIS] Invalid HookFunction in item: " .. SyncEventHookID)
+                            continue
+                        end
+
+                        -- Create or update the hook
+                        if not hookData.HookInit then
+                            hookData.LastHookFunction = hookData.HookFunction
+
+                            print("[AIS] Created SyncEvent hook: " .. itemID .. " | Hook: " .. SyncEventHookID)
+
+                            hook.Add(hookData.HookType, SyncEventHookID, function(...)
+                                hookData.HookFunction(...)
+                            end)
+
+                            hookData.HookInit = true
+                        elseif hookData.LastHookFunction ~= hookData.HookFunction then
+                            print("[AIS] Updated SyncEvent hook: " .. itemID .. " | Hook: " .. SyncEventHookID)
+
+                            hook.Add(hookData.HookType, SyncEventHookID, function(...)
+                                hookData.HookFunction(...)
+                            end)
+
+                            hookData.LastHookFunction = hookData.HookFunction
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    hook.Add("Think", "AIS_ApplyWhenWearingClient", function()
+        for ply, slots in pairs(PlayerEquippedItems) do
+            if not IsValid(ply) or not ply:Alive() then continue end
+
+            for slot, itemName in pairs(slots) do
+                local itemData = AIS_Items[itemName]
+                if itemData and isfunction(itemData.WhenWearingClient) then
+                    local args = itemData.ExtraWearingArgsClient or {}
+                    itemData.WhenWearingClient(ply, slot, unpack(args))
+                end
+            end
+        end
+    end)
+
+
+    hook.Add("PlayerSpawn", "AIS_OnEquipOnRespawnClient", function(ply)
+        local slots = PlayerEquippedItems[ply]
+        if not slots then return end
+
+        for _, item in pairs(slots) do
+            local itemData = AIS_Items[item]
+            if itemData and isfunction(itemData.OnEquipClient) then
+                local args = itemData.ExtraEquipArgsClient or {}
+                itemData.OnEquipClient(ply, item, unpack(args))
+            end
+        end
+    end)
+
     hook.Add("InitPostEntity", "AIS_CreateHooks", function()
         timer.Simple(3, function()
             CreateClientItemsHooks()
+            CreateSyncItemsHooks()
         end) 
     end)
 
     concommand.Add("AIS_CreateClientItemHooks", function(ply, cmd, args)
         CreateClientItemsHooks()
+        CreateSyncItemsHooks()
     end, nil, "Reloads or creates all AIS hooks.")
 end
