@@ -2,6 +2,9 @@ if CLIENT then
 
     local localplayer = LocalPlayer()
 
+    CreateConVar("AIS_Debug", "0", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Enable debug messages for AIS", 0, 1)
+    CreateConVar("AIS_RealismMode", "0", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Enable realism mode (hitgroup-based armor reduction)", 0, 1)
+
     hook.Add( "InitPostEntity", "AIS_GUIInitPlayer", function()
 	    localplayer = LocalPlayer()
     end )
