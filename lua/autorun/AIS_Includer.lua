@@ -11,11 +11,8 @@ if SERVER then
         end
     end
 
-    hook.Add("Initialize", "LoadAISSystemServer", function() 
+    hook.Add("PreGamemodeLoaded", "LoadAISSystemServer", function() 
         LoadAISFiles("AIS")
-    end)
-
-    hook.Add("InitPostEntity", "LoadAISAddonsServer", function()
         LoadAISFiles("AIS_Addon")
     end)
 
@@ -39,12 +36,9 @@ else
         end
     end
 
-    hook.Add("Initialize", "LoadAISSystemClient", function()
+    hook.Add("PostGamemodeLoaded", "LoadAISSystemClient", function() 
         LoadAISFilesClient("AIS")
-    end)
-
-    hook.Add("InitPostEntity", "LoadAISAddonsClient", function()
-        LoadAISFilesClient("AIS_Addon") 
+        LoadAISFilesClient("AIS_Addon")
     end)
 
     concommand.Add("AIS_Reload_Client", function()

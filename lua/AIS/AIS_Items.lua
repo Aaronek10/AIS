@@ -23,7 +23,8 @@ AIS_Items = {
         ClientHooks = {},
         ServerHooks = {},
         SyncEvents = {},
-        ShowInMenu = false
+        CoverHitGroup = {},
+        ShowInMenu = false, 
     },
     BootsTest = {
         Icon = "materials/AIS_Items/boots.png",
@@ -131,6 +132,28 @@ AIS_Items = {
             ["ArmorPoints"] = 5500,
             ["ELArmorPoints"] = 0,
         },
+        ClientHooks = {},
+        ServerHooks = {},
+        ShowInMenu = false
+    },
+    UseItemTest = {
+        Icon = "entities/sent_ball.png",
+        Name = "Test Use Item",
+        Description = "This is a test item that can be used. Prints a message when used and removes itself from the inventory (silently).",
+        Slot = "Item",
+        OnEquip = function(ply, item)
+            -- Default equip function
+        end,
+        OnUnEquip = function(ply, item)
+            -- Default unequip function
+        end,
+        WhenWearing = function(ply, item)
+            -- Default wearing function
+        end,
+        OnUse = function(ply, item)
+            PrintMessage(HUD_PRINTTALK, ply:Nick() .. " used item: " .. item)
+            ply:RemoveAISItem(item, true)
+        end,
         ClientHooks = {},
         ServerHooks = {},
         ShowInMenu = false

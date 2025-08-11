@@ -108,6 +108,13 @@ if SERVER then
         return false
     end
 
+    function PLAYER:HasItemInInventory(item)
+        local inventory = AIS_PlayerInventories[self]
+        if not inventory then return false end
+
+        return inventory[item] ~= nil
+    end
+
     function PLAYER:UpdateInventory(equip)
 
         local function SendCompressed(tag, tableData)
@@ -155,9 +162,14 @@ if SERVER then
     -- Operating on inventory management requests from clients
     net.Receive("AIS_ManageInventory", function(_, ply)
         local action = net.ReadString()
-        local InvPlayer = net.ReadPlayer()
+        local InvPlayer = ply
         local item = net.ReadString()
         local slot = net.ReadString()
+
+        if InvPlayer ~= ply then
+            print("[AIS SERVER] Inventory management attempted by non-owner player: " .. ply:Nick())
+            return
+        end
 
         if AIS_DebugMode then
             print("[AIS SERVER] Manage Inventory: " .. action .. " | Item: " .. item .. " | Slot: " .. slot)
@@ -252,6 +264,33 @@ if SERVER then
 
             if AIS_DebugMode then
                 print("[AIS SERVER] Destroyed " .. item .. " from inventory")
+            end
+        elseif action == "UseItem" then
+            if not itemData then
+                if AIS_DebugMode then
+                    print("[AIS SERVER] UseItem failed: item not found " .. item)
+                end
+                return
+            end
+
+            if InvPlayer:HasItemInInventory(item) then
+                if isfunction(itemData.OnUse) then
+                    local args = itemData.ExtraUseArgs or {}
+                    itemData.OnUse(InvPlayer, item, unpack(args))
+                else
+                    if AIS_DebugMode then
+                        print("[AIS SERVER] UseItem failed: OnUse function not defined for " .. item)
+                    end
+                end
+            else
+                if AIS_DebugMode then
+                    print("[AIS SERVER] UseItem failed: player doesn't have item " .. item)
+                end
+            end
+
+        else
+            if AIS_DebugMode then
+                print("[AIS SERVER] Unknown action: " .. action)
             end
         end
     end)
@@ -475,10 +514,9 @@ if CLIENT then
         end
 
         net.Start("AIS_ManageInventory")
-        net.WriteString("Equip")
-        net.WritePlayer(LocalPlayer())
-        net.WriteString(item)
-        net.WriteString(slot)
+            net.WriteString("Equip")
+            net.WriteString(item)
+            net.WriteString(slot)
         net.SendToServer()
     end
 
@@ -539,10 +577,9 @@ if CLIENT then
         end
 
         net.Start("AIS_ManageInventory")
-        net.WriteString("Unequip")
-        net.WritePlayer(LocalPlayer())
-        net.WriteString(item)
-        net.WriteString(slot)
+            net.WriteString("Unequip")
+            net.WriteString(item)
+            net.WriteString(slot)
         net.SendToServer()
     end
 
@@ -584,7 +621,6 @@ if CLIENT then
 
         net.Start("AIS_ManageInventory")
             net.WriteString("Destroy")
-            net.WritePlayer(LocalPlayer())
             net.WriteString(item)
             net.WriteString(foundSlot or "") -- Empty string if not equipped
         net.SendToServer()
@@ -600,6 +636,35 @@ if CLIENT then
         end
 
         return false
+    end
+
+    function PLAYERCLIENT:UseItem(item)
+        if not item then
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Use Item failed: item is invalid.")
+            end
+            return
+        end
+
+        local itemData = AIS_Items[item]
+        if not itemData then
+            if AIS_DebugMode then
+                print("[AIS CLIENT] Use Item failed: item not found in AIS_Items.")
+            end
+            return
+        end
+
+        net.Start("AIS_ManageInventory")
+            net.WriteString("UseItem")
+            net.WriteString(item)
+            net.WriteString("")
+        net.SendToServer()
+
+        if itemData.OnUseClient then
+            local args = itemData.ExtraUseClientArgs or {}
+            itemData.OnUseClient(LocalPlayer(), item, unpack(args))
+        end
+
     end
 
 

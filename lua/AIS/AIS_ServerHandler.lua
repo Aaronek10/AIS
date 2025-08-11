@@ -1,8 +1,8 @@
 if SERVER then
-    -- Physical Damage Types
 
     util.AddNetworkString("AIS_SyncEventHandler")
 
+    -- Physical Damage Types
     local Physical = {
         DMG_CRUSH,
         DMG_BULLET,
@@ -30,6 +30,14 @@ if SERVER then
         DMG_NERVEGAS,
         DMG_DISSOLVE,
         DMG_PLASMA
+    }
+
+    -- Non-blocked Damage Types
+    -- These damage types will not be reduced by armor or elemental armor.
+    local NotBlocked = {
+        DMG_FALL,
+        DMG_GENERIC,
+        DMG_PREVENT_PHYSICS_FORCE
     }
     
     -------------------[DAMAGE REDUCTION]-----------------------
@@ -302,8 +310,11 @@ if SERVER then
 
 
 
-    hook.Add("InitPostEntity", "AIS_CreateHooks", function() 
-        CreateItemsHooks()
+    hook.Add("InitPostEntity", "AIS_CreateHooks", function()
+        timer.Simple(3, function()
+            print("[AIS] Creating item hooks...")
+            CreateItemsHooks()
+        end) 
     end)
 
     concommand.Add("AIS_CreateItemHooks", function(ply, cmd, args)
@@ -468,11 +479,14 @@ if CLIENT then
         end
     end)
 
-    hook.Add("InitPostEntity", "AIS_CreateHooks", function()
-        timer.Simple(3, function()
-            CreateClientItemsHooks()
-            CreateSyncItemsHooks()
-        end) 
+    hook.Add("InitPostEntity", "AIS_CreateClientHooks", function()
+        if AIS_Items == nil or next(AIS_Items) == nil then
+            print("[AIS] Cannot create ClientHooks! AIS_Items table is missing.")
+            return
+        end
+        CreateClientItemsHooks()
+        CreateSyncItemsHooks()
+        print("[AIS] Client hooks created successfully.")
     end)
 
     concommand.Add("AIS_CreateClientItemHooks", function(ply, cmd, args)

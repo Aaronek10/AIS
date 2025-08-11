@@ -4,6 +4,8 @@ if CLIENT then
 
     CreateConVar("AIS_Debug", "0", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Enable debug messages for AIS", 0, 1)
     CreateConVar("AIS_RealismMode", "0", FCVAR_ARCHIVE + FCVAR_REPLICATED, "Enable realism mode (hitgroup-based armor reduction)", 0, 1)
+    CreateClientConVar("AIS_InventoryOpenSound", "AIS_UI/item_heavy_gun_pickup.wav", true, false, "Sound played when opening the inventory GUI")
+    CreateClientConVar("AIS_InventoryCloseSound", "AIS_UI/panel_close.wav", true, false, "Sound played when closing the inventory GUI")
 
     hook.Add( "InitPostEntity", "AIS_GUIInitPlayer", function()
 	    localplayer = LocalPlayer()
@@ -78,8 +80,14 @@ if CLIENT then
             posY = math.Clamp(posY, 0, ScrH() - tooltipH)
 
             ItemTooltip:SetPos(posX, posY)
+
+            if not IsValid(ItemTooltip.AssociatedItem) then
+                ItemTooltip:Remove()
+                ItemTooltip = nil
+            end
         end
     end)
+
 
 
     function ItemFitSlot(slotName, itemData)
@@ -112,6 +120,7 @@ if CLIENT then
         AISInventoryFrame:SetDraggable(false)
         AISInventoryFrame:ShowCloseButton(false)
         AISInventoryFrame:SetTitle("")
+        AISInventoryFrame:SetKeyboardInputEnabled(false)
     
         local margin = 10
         local w, h = AISInventoryFrame:GetSize()
@@ -273,7 +282,8 @@ if CLIENT then
         CloseButton:SetSize(ScrW() * 0.05, ScrH() * 0.035)
         CloseButton:SetPos(statusPanel:GetWide() - 110, 10)
         CloseButton.DoClick = function()
-            user:EmitSound("AIS_UI/panel_open.wav")
+            local closesound = GetConVar("AIS_InventoryCloseSound"):GetString()
+            user:EmitSound(closesound)
             AISInventoryFrame:Close()
         end
 
@@ -387,6 +397,7 @@ if CLIENT then
                         end
                         item:SetParent(self)
                         item:SetPos(10, panels[1]:GetTall() / 2)
+                        print("Parent tall: " .. panels[1]:GetTall())
                         item:Droppable("inventorygrid")
                         item.isEquipped = true
                         item.AssignedSlot = name
@@ -435,6 +446,13 @@ if CLIENT then
             print("[AIS CLIENT] Called Revalidating Inventory Grid!")
         end
 
+        for _, slot in ipairs(AISslotList) do
+            if IsValid(slot) and IsValid(slot.ItemOnSlot) then
+                slot.ItemOnSlot:Remove()
+                slot.ItemOnSlot = nil
+            end
+        end
+
 
         for itemID, isValid in pairs(PlayerInventory) do
             local data = AIS_Items[itemID]
@@ -470,55 +488,62 @@ if CLIENT then
                 localplayer:EmitSound("AIS_UI/slide_up.wav")
 
                 local Itemmenu = DermaMenu()
+                local itemData = itemObject.AISItem_Data
 
-                if not itemObject.isEquipped then
-                    Itemmenu:AddOption("Equip", function()
-                        local itemData = itemObject.AISItem_Data
-                        if not itemData then return end
-                        for _, slot in ipairs(AISslotList) do
-                            if IsValid(slot) and ItemFitSlot(slot.name, itemData) and not IsValid(slot.ItemOnSlot) then
-                                itemObject:SetParent(slot)
-                                itemObject:SetPos(10, itemObject:GetTall() / 2)
-                                slot.ItemOnSlot = itemObject
-                                itemObject.AssignedSlot = slot.name
-
-                                localplayer:EquipItem(itemObject.AIS_ItemID, slot.name)
-
-                                itemObject.isEquipped = true
-                                itemObject:Droppable("inventorygrid")
-                                if itemObject.AISItem_Data.EquipSound then
-                                    localplayer:EmitSound(itemObject.AISItem_Data.EquipSound)
-                                else
-                                    localplayer:EmitSound("AIS_UI/item_bag_drop.wav")
-                                end
-                                break
-                            end
-                        end
-                    end):SetIcon("icon16/cursor.png")
+                if itemData.Slot == "Item" then
+                    Itemmenu:AddOption("Use/Consume", function()
+                        localplayer:UseItem(itemObject.AIS_ItemID)
+                    end):SetIcon("icon16/bullet_wrench.png")
                 else
-                    Itemmenu:AddOption("Unequip", function()
-                        local slotName = itemObject.AISItem_Data and itemObject.AISItem_Data.Slot
-                        if not slotName then return end
+                    if not itemObject.isEquipped then
+                        Itemmenu:AddOption("Equip", function()
+                            local itemData = itemObject.AISItem_Data
+                            if not itemData then return end
+                            for _, slot in ipairs(AISslotList) do
+                                if IsValid(slot) and ItemFitSlot(slot.name, itemData) and not IsValid(slot.ItemOnSlot) then
+                                    itemObject:SetParent(slot)
+                                    itemObject:SetPos(10, itemObject:GetTall() / 2)
+                                    slot.ItemOnSlot = itemObject
+                                    itemObject.AssignedSlot = slot.name
 
-                        for _, slot in ipairs(AISslotList) do
-                            if IsValid(slot) and slot.ItemOnSlot == itemObject then
-                                slot.ItemOnSlot:SetParent(AISItemGrid)
-                                AISItemGrid:InvalidateLayout(true)
+                                    localplayer:EquipItem(itemObject.AIS_ItemID, slot.name)
 
-                                localplayer:UnequipItem(itemObject.AIS_ItemID, slot.name)
-                                itemObject.AssignedSlot = nil
-                                itemObject.isEquipped = false
-                                slot.ItemOnSlot = nil
-
-                                if itemObject.AISItem_Data.UnEquipSound then
-                                    localplayer:EmitSound(itemObject.AISItem_Data.UnEquipSound)
-                                else
-                                    localplayer:EmitSound("AIS_UI/item_bag_pickup.wav")
+                                    itemObject.isEquipped = true
+                                    itemObject:Droppable("inventorygrid")
+                                    if itemObject.AISItem_Data.EquipSound then
+                                        localplayer:EmitSound(itemObject.AISItem_Data.EquipSound)
+                                    else
+                                        localplayer:EmitSound("AIS_UI/item_bag_drop.wav")
+                                    end
+                                    break
                                 end
-                                break
                             end
-                        end
-                    end):SetIcon("icon16/delete.png")
+                        end):SetIcon("icon16/cursor.png")
+                    else
+                        Itemmenu:AddOption("Unequip", function()
+                            local slotName = itemObject.AISItem_Data and itemObject.AISItem_Data.Slot
+                            if not slotName then return end
+
+                            for _, slot in ipairs(AISslotList) do
+                                if IsValid(slot) and slot.ItemOnSlot == itemObject then
+                                    slot.ItemOnSlot:SetParent(AISItemGrid)
+                                    AISItemGrid:InvalidateLayout(true)
+
+                                    localplayer:UnequipItem(itemObject.AIS_ItemID, slot.name)
+                                    itemObject.AssignedSlot = nil
+                                    itemObject.isEquipped = false
+                                    slot.ItemOnSlot = nil
+
+                                    if itemObject.AISItem_Data.UnEquipSound then
+                                        localplayer:EmitSound(itemObject.AISItem_Data.UnEquipSound)
+                                    else
+                                        localplayer:EmitSound("AIS_UI/item_bag_pickup.wav")
+                                    end
+                                    break
+                                end
+                            end
+                        end):SetIcon("icon16/delete.png")
+                    end
                 end
 
                 Itemmenu:AddOption("Inspect", function()
@@ -569,10 +594,20 @@ if CLIENT then
                         end
                     end
 
+                    local description = data.Description or "No description available."
+
+                    if isfunction(description) then
+                        if IsValid(LocalPlayer()) then
+                            description = description(LocalPlayer())
+                        else
+                            description = "NOT AVAILABLE - LocalPlayer is not valid."
+                        end
+                    end
+
                     local parsed = markup.Parse(
                         "<font=AIS_InventoryFont>" ..
                             "<color=255,255,255><b>Description:</b></color>\n" ..
-                            "<color=200,200,200>" .. (data.Description or "No description.") .. "</color>\n\n" ..
+                            "<color=200,200,200>" .. (description or "No description.") .. "</color>\n\n" ..
 
                             "<color=150,200,255><b>Stats:</b></color>\n" ..
                             attributeLines .. "\n" ..
@@ -611,6 +646,12 @@ if CLIENT then
                 Itemmenu:Open()
             end
 
+            if data.Slot == "Item" then
+                itemObject.DoDoubleClick = function()
+                    localplayer:UseItem(itemObject.AIS_ItemID)
+                end
+            end
+
             itemObject.OnCursorEntered = function()
                 if IsValid(ItemTooltip) then ItemTooltip:Remove() end
 
@@ -620,11 +661,16 @@ if CLIENT then
                 local name = data.Name or "Unknown Item"
                 local slot = data.Slot
                 local description = data.Description or "No description available."
+                if isfunction(description) then
+                    description = description(localplayer)
+                end
 
                 local SlotString = "Not specified"
                 if slot then
                     if type(slot) == "table" then
                         SlotString = table.concat(slot, ", ")
+                    elseif slot == "Item" then
+                        SlotString = "Item / Consumable"
                     else
                         SlotString = slot
                     end
@@ -646,14 +692,30 @@ if CLIENT then
                 local attributeText = attributeBlock ~= "" and ("\n\n" .. attributeBlock) or ""
                 local extraCoverText = extraCovers ~= "" and ("\n" .. extraCovers) or ""
 
-                local formattedDesc = string.format(
-                    "<font=AIS_InventoryFontSmall><b>%s</b>\n<color=200,200,200>%s</color>%s%s\n\n<color=150,150,255>Slot: %s</color></font>",
-                    name,
-                    description,
-                    attributeText,
-                    extraCoverText,
-                    SlotString
-                )
+                local formattedDesc
+
+                if slot == "Item" then
+                    -- specjalny format dla consumables
+                    formattedDesc = string.format(
+                        "<font=AIS_InventoryFontSmall><b>%s</b>\n<color=200,200,200>%s</color>%s%s\n\n<color=255,180,100><b>%s</b></color></font>",
+                        name,
+                        description,
+                        attributeText,
+                        extraCoverText,
+                        SlotString
+                    )
+                else
+                    -- standardowy opis dla slotów ekwipunku
+                    formattedDesc = string.format(
+                        "<font=AIS_InventoryFontSmall><b>%s</b>\n<color=200,200,200>%s</color>%s%s\n\n<color=150,150,255>Slot: %s</color></font>",
+                        name,
+                        description,
+                        attributeText,
+                        extraCoverText,
+                        SlotString
+                    )
+                end
+
 
 
 
@@ -665,6 +727,7 @@ if CLIENT then
                 ItemTooltip:SetPaintedManually(false)
                 ItemTooltip:SetDrawOnTop(true)
                 ItemTooltip:SetAlpha(0)
+                ItemTooltip.AssociatedItem = itemObject
 
                 ItemTooltip.Think = function(self)
                     local curAlpha = self:GetAlpha()
@@ -699,7 +762,7 @@ if CLIENT then
                 for _, slot in ipairs(AISslotList) do
                     if slot.name == equippedSlot then
                         itemObject:SetParent(slot)
-                        itemObject:SetPos(10, itemObject:GetParent():GetTall() / 2 + 20)
+                        itemObject:SetPos(10, 32)
                         itemObject:Droppable("inventorygrid")
                         itemObject.isEquipped = true
                         itemObject.AIS_ItemID = itemID
@@ -729,9 +792,15 @@ if CLIENT then
     end
     
     concommand.Add("Open_AIS_Inventory", function(user)
-        if not IsValid(AISInventoryFrame) then
+        if IsValid(AISInventoryFrame) then
+            AISInventoryFrame:Close()
+            AISInventoryFrame = nil
+            local closesound = GetConVar("AIS_InventoryCloseSound"):GetString()
+            LocalPlayer():EmitSound(closesound)
+        else
+            local opensound = GetConVar("AIS_InventoryOpenSound"):GetString()
+            LocalPlayer():EmitSound(opensound)
             OpenAISInventory(user)
-            localplayer:EmitSound("AIS_UI/item_heavy_gun_pickup.wav")
         end
     end)
 end

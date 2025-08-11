@@ -86,7 +86,8 @@ if CLIENT then
         net.SendToServer()
 
         if itemData.OnUseClient then
-            itemData.OnUseClient(LocalPlayer(), item)
+            local args = itemData.ExtraUseClientArgs or {}
+            itemData.OnUseClient(LocalPlayer(), item, unpack(args))
         end
 
         if AIS_DebugMode then print("[AIS CLIENT] Used active item: " .. item) end
@@ -132,7 +133,7 @@ if CLIENT then
             })
         end
 
-        surface.SetDrawColor(255, 0, 0, 200)  -- czerwony z delikatną przezroczystością (możesz zmienić)
+        surface.SetDrawColor(255, 0, 0, 200)
         draw.NoTexture()
         surface.DrawPoly(vertices)
     end
