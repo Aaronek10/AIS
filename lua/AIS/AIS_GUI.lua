@@ -397,7 +397,6 @@ if CLIENT then
                         end
                         item:SetParent(self)
                         item:SetPos(10, panels[1]:GetTall() / 2)
-                        print("Parent tall: " .. panels[1]:GetTall())
                         item:Droppable("inventorygrid")
                         item.isEquipped = true
                         item.AssignedSlot = name
@@ -793,14 +792,21 @@ if CLIENT then
     
     concommand.Add("Open_AIS_Inventory", function(user)
         if IsValid(AISInventoryFrame) then
+
             AISInventoryFrame:Close()
             AISInventoryFrame = nil
+
             local closesound = GetConVar("AIS_InventoryCloseSound"):GetString()
             LocalPlayer():EmitSound(closesound)
+
+            hook.Run("AIS_InventoryTriggered", LocalPlayer(), false)
         else
             local opensound = GetConVar("AIS_InventoryOpenSound"):GetString()
             LocalPlayer():EmitSound(opensound)
+
             OpenAISInventory(user)
+
+            hook.Run("AIS_InventoryTriggered", LocalPlayer(), true)
         end
     end)
 end
