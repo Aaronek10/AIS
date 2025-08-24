@@ -420,7 +420,7 @@ if CLIENT then
             end
 
             if not silent then
-                AIS_Notify("Obtained item: " .. AIS_Items[item].Name, nil, AIS_Items[item].Icon, 3, "AIS_UI/panel_close.wav")
+                AIS_Notify("Obtained item: " .. AISStripMarkup(AIS_Items[item].Name), nil, AIS_Items[item].Icon, 3, "AIS_UI/panel_close.wav")
             end
 
         elseif action == "Remove" then
@@ -431,7 +431,7 @@ if CLIENT then
             end
 
             if not silent then
-                AIS_Notify("Removed item: " .. AIS_Items[item].Name, nil, AIS_Items[item].Icon, 3, "AIS_UI/panel_close.wav")
+                AIS_Notify("Removed item: " .. AISStripMarkup(AIS_Items[item].Name), nil, AIS_Items[item].Icon, 3, "AIS_UI/panel_close.wav")
             end
 
             for i = #AIS_LocalPlayerActiveItemManager.List, 1, -1 do

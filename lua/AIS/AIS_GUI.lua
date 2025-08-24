@@ -40,6 +40,10 @@ if CLIENT then
         return table.concat(lines, "\n")
     end
 
+    function AISStripMarkup(text)
+        return string.gsub(text, "<.->", "")
+    end
+
     surface.CreateFont("AIS_InventoryFont", {
         font = "Stratum2 Md",
         size = ScreenScale(7),
@@ -175,8 +179,10 @@ if CLIENT then
                     if itemData then
                         local armor = itemData.Attributes and itemData.Attributes["ArmorPoints"] or 0
                         local elarmor = itemData.Attributes and itemData.Attributes["ELArmorPoints"] or 0
+                        local name = AISStripMarkup(itemData.Name or "Unknown")
 
-                        draw.SimpleText(string.format("%s: %s - %d ARMOR / %d ELEM. ARMOR", slotName, itemData.Name or "?", armor, elarmor), font, 10, y, Color(200, 200, 255))
+
+                        draw.SimpleText(string.format("%s: %s - %d ARMOR / %d ELEM. ARMOR", slotName, name, armor, elarmor), font, 10, y, Color(200, 200, 255))
                         
                         totalArmor = totalArmor + armor
                         totalELArmor = totalELArmor + elarmor
@@ -285,6 +291,7 @@ if CLIENT then
             local closesound = GetConVar("AIS_InventoryCloseSound"):GetString()
             user:EmitSound(closesound)
             AISInventoryFrame:Close()
+            hook.Run("AIS_InventoryTriggered", LocalPlayer(), false)
         end
 
         --------------------------------[MODEL]--------------------------------
@@ -552,7 +559,8 @@ if CLIENT then
                     local inspectFrame = vgui.Create("DFrame")
                     inspectFrame:SetSize(800, 500)
                     inspectFrame:Center()
-                    inspectFrame:SetTitle(data.Name or "Inspect")
+                    local markupname = AISStripMarkup(data.Name or "Unknown Item")
+                    inspectFrame:SetTitle(markupname)
                     inspectFrame:ShowCloseButton(true)
                     inspectFrame:MakePopup()
 

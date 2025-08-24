@@ -39,7 +39,6 @@ function ENT:Initialize()
     end
 end
 
-
 function ENT:DrawTranslucent()
     local itemID = self:GetItemID()
     if not itemID then return end
@@ -67,7 +66,8 @@ function ENT:DrawTranslucent()
         end
 
         -- Nazwa
-        draw.SimpleTextOutlined(data.Name or itemID, "AIS_InventoryFont", 10, 55, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, color_black)
+        local itemname = AISStripMarkup(data.Name or self:GetItemID())
+        draw.SimpleTextOutlined(itemname, "AIS_InventoryFont", 10, 55, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, color_black)
     cam.End3D2D()
 end
 
