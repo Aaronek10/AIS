@@ -115,7 +115,8 @@ if CLIENT then
             local icon = itemlist:Add("DButton")
             icon:SetSize(64, 64)
             icon:SetText("")
-            icon:SetTooltip(data.Name)
+            local correctName = AISStripMarkup(data.Name)
+            icon:SetTooltip(correctName)
             local BGColor = Color(50, 50, 50, 255)
 
             icon.Paint = function(self, w, h)

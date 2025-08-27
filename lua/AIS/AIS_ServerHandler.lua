@@ -308,6 +308,29 @@ if SERVER then
         net.Broadcast()
     end)
 
+    function ServerSendSyncEvent(ent, itemID, hookID)
+        local ply = ent
+        local pos = ply:GetPos()
+        local ItemIDProc = itemID
+        local ItemHookID = hookID
+
+        local SyncEvent = {
+            TriggerEnt = ply,
+            TriggerPos = pos,
+            ItemID = ItemIDProc,
+            ItemHookID = ItemHookID,
+            ProcTime = CurTime()
+        }
+
+        net.Start("AIS_SyncEventHandler")
+            net.WriteTable(SyncEvent)
+        net.Broadcast()
+
+        if AIS_DebugMode then
+            print("[AIS] Sending SyncData to clients | ItemID: ", ItemIDProc, " HookID: ", ItemHookID)
+        end
+    end
+
 
 
     hook.Add("InitPostEntity", "AIS_CreateHooks", function()
