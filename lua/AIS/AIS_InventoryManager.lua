@@ -77,6 +77,41 @@ if SERVER then
         end
         
         if AIS_PlayerInventories[self] and AIS_PlayerInventories[self][item] then
+
+            if AIS_EquipedSlots[self] then
+                for slot, equippedItem in pairs(AIS_EquipedSlots[self]) do
+                    if equippedItem == item then
+                        AIS_EquipedSlots[self][slot] = nil
+
+                        if AIS_DebugMode then
+                            print("[AIS SERVER] Unequipped item from slot due to removal: " .. item .. " from slot " .. slot)
+                        end
+
+                        local itemData = AIS_Items[item]
+                        if itemData and isfunction(itemData.OnUnEquip) then
+                            local args = itemData.ExtraUnEquipArgs or {}
+                            itemData.OnUnEquip(self, item, unpack(args))
+                        end
+
+                        local list = AIS_ActiveItemPlayerManager[self]
+                        if list then
+                            for i, v in ipairs(list) do
+                                if v == item then
+                                    table.remove(list, i)
+
+                                    if AIS_DebugMode then
+                                        print("[AIS SERVER] Removed Active Item due to removal: " .. item)
+                                    end
+
+                                    break
+                                end
+                            end
+                        end
+
+                    end
+                end
+            end
+
             AIS_PlayerInventories[self][item] = nil
             if AIS_DebugMode then
                 print("[AIS SERVER] Removed item from inventory: " .. item)
