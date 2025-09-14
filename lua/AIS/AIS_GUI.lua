@@ -12,7 +12,7 @@ if CLIENT then
     end )
 
     local equipmentSlots = {
-        "Head", "Chest", "Arms", "Gloves", "Pants", "Boots", "Trinket 1", "Trinket 2", "Trinket 3", "Trinket 4"
+        "Eyewear", "Head", "Chest", "Arms", "Gloves", "Pants", "Boots", "Trinket 1", "Trinket 2", "Trinket 3", "Trinket 4"
     }
 
     AIS_AttributeLocalization = {

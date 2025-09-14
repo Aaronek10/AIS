@@ -475,15 +475,22 @@ if CLIENT then
     end
 
     hook.Add("Think", "AIS_ApplyWhenWearingClient", function()
-        for ply, slots in pairs(PlayerEquippedItems) do
-            if not IsValid(ply) or not ply:Alive() then continue end
+        local ply = LocalPlayer()
+        if not IsValid(ply) or not ply:Alive() then return end
+        for slot, itemName in pairs(PlayerEquippedItems) do
+            if not itemName or itemName == "" then continue end
 
-            for slot, itemName in pairs(slots) do
-                local itemData = AIS_Items[itemName]
-                if itemData and isfunction(itemData.WhenWearingClient) then
-                    local args = itemData.ExtraWearingArgsClient or {}
-                    itemData.WhenWearingClient(ply, slot, unpack(args))
+            local itemData = AIS_Items[itemName]
+            if not itemData then
+                if AIS_DebugMode then
+                    print("[AIS CLIENT] Unknown equipped item for slot:", slot, "->", tostring(itemName))
                 end
+                continue
+            end
+
+            if isfunction(itemData.WhenWearingClient) then
+                local args = itemData.ExtraWearingArgsClient or {}
+                itemData.WhenWearingClient(ply, item, unpack(args))
             end
         end
     end)

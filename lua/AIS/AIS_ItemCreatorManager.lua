@@ -99,30 +99,39 @@ if CLIENT then
     local function AIS_ItemCreatorMenu()
         local frame = vgui.Create("DFrame")
         frame:SetTitle("AIS Item Creator")
-        frame:SetSize(600, 600)
+        frame:SetSize(700, 600)
         frame:Center()
         frame:MakePopup()
-        frame:ShowCloseButton(false)
-        frame:SetDraggable(true)
 
-        local itemlist = vgui.Create("DIconLayout", frame)
-        itemlist:Dock(FILL)
-        itemlist:SetSpaceX(11)
-        itemlist:SetSpaceY(11)
-        itemlist:DockMargin(10, 10, 10, 10)
+        -- Scroll + layout
+        local scroll = vgui.Create("DScrollPanel", frame)
+        scroll:Dock(FILL)
+        scroll:DockMargin(10, 10, 10, 50)
+
+        local layout = vgui.Create("DIconLayout", scroll)
+        layout:Dock(FILL)
+        layout:SetSpaceX(10)
+        layout:SetSpaceY(10)
+        layout:DockMargin(10, 10, 10, 10)
+
         for itemID, data in pairs(AIS_Items) do
-            if data.ShowInMenu ~= nil and data.ShowInMenu == false then continue end
-            local icon = itemlist:Add("DButton")
+            if data.ShowInMenu == false then continue end
+
+            local icon = layout:Add("DButton")
             icon:SetSize(64, 64)
             icon:SetText("")
+
             local correctName = AISStripMarkup(data.Name)
             icon:SetTooltip(correctName)
+
+            local mat = Material(data.Icon)
             local BGColor = Color(50, 50, 50, 255)
+            local HoverColor = Color(0, 197, 154)
 
             icon.Paint = function(self, w, h)
                 draw.RoundedBox(6, 0, 0, w, h, BGColor)
-                surface.SetMaterial(Material(data.Icon))
                 surface.SetDrawColor(255, 255, 255)
+                surface.SetMaterial(mat)
                 surface.DrawTexturedRect(0, 0, w, h)
             end
 
@@ -134,7 +143,7 @@ if CLIENT then
             end
 
             icon.OnCursorEntered = function()
-                BGColor = Color(0, 197, 154)
+                BGColor = HoverColor
                 surface.PlaySound("AIS_UI/panel_open.wav")
             end
 
@@ -144,14 +153,16 @@ if CLIENT then
         end
 
         local closeButton = vgui.Create("DButton", frame)
-        closeButton:SetText("Close")
         closeButton:SetSize(100, 30)
         closeButton:SetPos(frame:GetWide() - 110, frame:GetTall() - 40)
+        closeButton:SetText("Close")
+
         closeButton.DoClick = function()
             frame:Close()
             LocalPlayer():EmitSound("AIS_UI/quest_folder_close.wav")
         end
     end
+
 
     concommand.Add("AIS_ItemCreator", function()
         LocalPlayer():EmitSound("AIS_UI/quest_folder_close_halloween.wav")
